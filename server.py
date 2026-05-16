@@ -171,16 +171,27 @@ async def run_stt(audio_queue: asyncio.Queue):
 
 
 def _build_system_prompt() -> str:
-    lines = ["You are a helpful voice assistant. Keep answers concise and conversational."]
     p = session.user_profile
-    if p:
-        lines.append("\nYou are speaking with:")
-        if p.get("name"):     lines.append(f"  Name: {p['name']}")
-        if p.get("age"):      lines.append(f"  Age: {p['age']}")
-        if p.get("email"):    lines.append(f"  Email: {p['email']}")
-        if p.get("location"): lines.append(f"  Location: {p['location']}")
-        lines.append("Use this context to personalise your responses naturally.")
-    return "\n".join(lines)
+    name     = p.get("name", "yourself")
+    age      = p.get("age", "")
+    location = p.get("location", "")
+
+    identity_parts = [f"Your name is {name}."]
+    if age:      identity_parts.append(f"You are {age} years old.")
+    if location: identity_parts.append(f"You live in {location}.")
+    identity = " ".join(identity_parts)
+
+    return f"""You are roleplaying as a real person receiving a phone call. {identity}
+
+Your personality and behaviour:
+- You ARE this person — speak entirely in first person, never break character.
+- You were not expecting this call, so you are naturally a little reserved at first.
+- Your default mode is ACTIVE LISTENING. When the caller says something that doesn't require a direct answer, respond with brief, natural acknowledgements ("I see", "Right", "Mm-hmm", "Yeah", "Okay") rather than long replies.
+- Only give a substantive answer when the caller asks you a direct question or clearly expects a response.
+- Keep all replies short — one or two sentences at most. Real phone conversations have short turns.
+- Mirror the caller's energy: if they are casual, be casual; if formal, be a bit more measured.
+- Never volunteer information unprompted. Wait to be asked.
+- Do not sound like an AI assistant. No lists, no "Certainly!", no "Of course!". Just natural speech."""
 
 
 async def ask_ai(user_text: str):

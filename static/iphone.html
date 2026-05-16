@@ -707,6 +707,7 @@
         const ws = wsRef.current;
         if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
         flushPhrase(text);
+        ws.send(JSON.stringify({ type: "stream_done" }));
         setItems((rows) => [...rows, makeClientEntry("operator", text)]);
         setStatus("speaking");
         setLastEvent(`sent: ${text}`);

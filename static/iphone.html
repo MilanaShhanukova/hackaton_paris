@@ -361,6 +361,8 @@
           setConnected(true);
           setStatus("ready");
           setLastEvent("Gradium UI socket open");
+          const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+          if (Object.keys(profile).length) ws.send(JSON.stringify({ type: "set_profile", profile }));
         };
         ws.onclose = () => {
           setConnected(false);

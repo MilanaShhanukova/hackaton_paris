@@ -317,7 +317,11 @@
 
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/ui`);
-    ws.onopen = () => setStatus("ready", false);
+    ws.onopen = () => {
+      setStatus("ready", false);
+      const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
+      if (Object.keys(profile).length) ws.send(JSON.stringify({ type: "set_profile", profile }));
+    };
     ws.onclose = () => setStatus("disconnected", false);
 
     ws.onmessage = ({ data }) => {

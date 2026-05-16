@@ -74,6 +74,7 @@ class Session:
     voice_id: str = GRADIUM_VOICE_ID
     ai_mode: bool = False
     conversation_history: list = []
+    user_profile: dict = {}
 
 
 session = Session()
@@ -169,6 +170,19 @@ async def run_stt(audio_queue: asyncio.Queue):
         await asyncio.gather(sender(), receiver())
 
 
+def _build_system_prompt() -> str:
+    lines = ["You are a helpful voice assistant. Keep answers concise and conversational."]
+    p = session.user_profile
+    if p:
+        lines.append("\nYou are speaking with:")
+        if p.get("name"):     lines.append(f"  Name: {p['name']}")
+        if p.get("age"):      lines.append(f"  Age: {p['age']}")
+        if p.get("email"):    lines.append(f"  Email: {p['email']}")
+        if p.get("location"): lines.append(f"  Location: {p['location']}")
+        lines.append("Use this context to personalise your responses naturally.")
+    return "\n".join(lines)
+
+
 async def ask_ai(user_text: str):
     """Send the latest transcript to GPT and pipe the reply through TTS."""
     session.conversation_history.append({"role": "user", "content": user_text})
@@ -176,7 +190,7 @@ async def ask_ai(user_text: str):
     response = await openai_client.chat.completions.create(
         model=AI_MODEL,
         messages=[
-            {"role": "system", "content": "You are a helpful voice assistant. Keep answers concise and conversational."},
+            {"role": "system", "content": _build_system_prompt()},
             *session.conversation_history,
         ],
     )
@@ -204,6 +218,8 @@ async def ui_socket(ws: WebSocket):
                 await warmup_tts()
             elif t == "stream_word" and msg.get("word"):
                 await stream_word(msg["word"])
+            elif t == "set_profile" and isinstance(msg.get("profile"), dict):
+                session.user_profile = msg["profile"]
             elif msg.get("type") == "toggle_ai":
                 session.ai_mode = not session.ai_mode
                 if not session.ai_mode:

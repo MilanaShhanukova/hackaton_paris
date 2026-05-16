@@ -315,8 +315,13 @@ async def _caller_send(msg: dict):
 # ---------------------------------------------------------------------------
 
 @app.get("/")
-async def caller_page():
-    return HTMLResponse(Path("static/caller.html").read_text())
+async def root():
+    return HTMLResponse(Path("static/login.html").read_text())
+
+
+@app.get("/login")
+async def login_page():
+    return HTMLResponse(Path("static/login.html").read_text())
 
 
 @app.get("/call")

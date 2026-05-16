@@ -36,9 +36,10 @@
       line-height: 1.5;
       overflow-y: auto;
       color: #ddd;
+      word-break: break-word;
     }
-    #transcript.interim { color: #666; }
     #transcript.empty   { color: #333; font-style: italic; font-size: 18px; }
+    #transcript .interim-word { color: #555; }
 
     #history {
       background: #161616;
@@ -133,13 +134,32 @@
     const replyEl = document.getElementById("reply");
     const linkEl = document.getElementById("link-text");
 
-    // Build the caller link from the current host (works with ngrok too)
     const callerUrl = `${location.protocol}//${location.host}/call`;
     linkEl.textContent = callerUrl;
 
     function copyLink() {
       navigator.clipboard.writeText(callerUrl);
     }
+
+    function esc(s) {
+      return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    function renderTranscript(full, interim) {
+      if (!full && !interim) {
+        transcriptEl.className = "empty";
+        transcriptEl.innerHTML = "Caller's words will appear here…";
+        return;
+      }
+      transcriptEl.className = "";
+      const sep = full && interim ? " " : "";
+      transcriptEl.innerHTML =
+        esc(full) + sep +
+        (interim ? `<span class="interim-word">${esc(interim)}</span>` : "");
+      transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    }
+
+    let fullTranscript = "";
 
     const ws = new WebSocket(`ws://${location.host}/ui`);
     ws.onopen = () => setStatus("ready", false);
@@ -149,8 +169,12 @@
       const msg = JSON.parse(data);
 
       if (msg.type === "transcript") {
-        transcriptEl.textContent = msg.text;
-        transcriptEl.className = msg.final ? "" : "interim";
+        if (msg.final) {
+          fullTranscript = msg.full;
+          renderTranscript(fullTranscript, "");
+        } else {
+          renderTranscript(fullTranscript, msg.text);
+        }
       }
 
       if (msg.type === "status") {
@@ -158,8 +182,8 @@
         else if (msg.text === "speaking")    setStatus("speaking…", true, true);
         else if (msg.text === "caller_disconnected") {
           setStatus("waiting for caller", false);
-          transcriptEl.textContent = "Caller disconnected.";
-          transcriptEl.className = "";
+          fullTranscript = "";
+          renderTranscript("", "");
         }
       }
     };

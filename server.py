@@ -50,6 +50,7 @@ class Session:
     caller_ws: WebSocket | None = None
     ui_ws: WebSocket | None = None
     audio_queue: asyncio.Queue | None = None
+    transcript: str = ""
 
 
 session = Session()
@@ -64,6 +65,7 @@ async def caller_stream(ws: WebSocket):
     await ws.accept()
     session.caller_ws = ws
     session.audio_queue = asyncio.Queue()
+    session.transcript = ""
 
     stt_task = asyncio.create_task(run_stt(session.audio_queue))
     await _ui_send({"type": "status", "text": "caller_connected"})
@@ -98,11 +100,16 @@ async def run_stt(audio_queue: asyncio.Queue):
 
         async def receiver():
             async for msg in stt:
-                if msg["type"] in ("text", "end_text") and msg.get("text"):
+                if msg.get("text"):
+                    is_final = msg["type"] == "end_text"
+                    if is_final:
+                        sep = " " if session.transcript else ""
+                        session.transcript += sep + msg["text"]
                     await _ui_send({
                         "type": "transcript",
                         "text": msg["text"],
-                        "final": msg["type"] == "end_text",
+                        "full": session.transcript,
+                        "final": is_final,
                     })
 
         await asyncio.gather(sender(), receiver())

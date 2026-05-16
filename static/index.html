@@ -306,6 +306,15 @@
       conv.scrollTop = conv.scrollHeight;
     }
 
+    function addAiBubble(text) {
+      conv.querySelector(".empty-hint")?.remove();
+      const b = document.createElement("div");
+      b.className = "bubble ai";
+      b.textContent = text;
+      conv.appendChild(b);
+      conv.scrollTop = conv.scrollHeight;
+    }
+
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/ui`);
     ws.onopen = () => setStatus("ready", false);
@@ -316,6 +325,15 @@
 
       if (msg.type === "transcript") {
         addCallerBubble(msg);
+      }
+
+      if (msg.type === "ai_reply") {
+        addAiBubble(msg.text);
+      }
+
+      if (msg.type === "ai_mode") {
+        aiBtnEl.classList.toggle("ai-on", msg.enabled);
+        aiBtnEl.title = msg.enabled ? "AI mode ON — click to disable" : "Toggle AI auto-reply mode";
       }
 
       if (msg.type === "status") {

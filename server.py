@@ -41,8 +41,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
 
 SCAM_API_KEY = "pio_sk_b1ba44eb-c276-406f-be86-6faf73d7f77e_t1g3r_AWfFlOIN2Eys404T"
-SCAM_API_URL = "https://agent.pioneer.ai/finetuning/051f32a2-9b09-471f-b777-21a55af242b4"
-SCAM_THRESHOLD = float(os.getenv("SCAM_THRESHOLD", "0.45"))
+SCAM_MODEL_ID = "051f32a2-9b09-471f-b777-21a55af242b4"
+SCAM_API_URL = "https://api.pioneer.ai/inference"
 
 # 16 kHz signed-16-bit PCM — supported by both Gradium and Web Audio API
 PCM_FORMAT = "pcm_16000"
@@ -87,6 +87,7 @@ class Session:
     conversation_history: list = []
     user_profile: dict = {}
     scam_alerted: bool = False
+    stream_retire_task: object = None  # asyncio Task — auto-closes TTS after inactivity
 
 
 session = Session()
@@ -116,19 +117,23 @@ async def check_scam(text: str):
         async with httpx.AsyncClient(timeout=8) as client:
             resp = await client.post(
                 SCAM_API_URL,
-                headers={"Authorization": f"Bearer {SCAM_API_KEY}"},
-                json={"text": text, "full_transcript": session.transcript},
+                headers={"X-API-Key": SCAM_API_KEY},
+                json={
+                    "model_id": SCAM_MODEL_ID,
+                    "task": "classify_text",
+                    "text": text,
+                    "schema": {"categories": ["scam", "legitimate"]},
+                },
             )
             resp.raise_for_status()
             data = resp.json()
 
-        score = float(data.get("score", data.get("confidence", data.get("probability", 0))))
-        label = str(data.get("label", "")).lower()
-        is_scam = (label in ("scam", "fraud")) or (score >= SCAM_THRESHOLD)
+        category = str(data.get("result", {}).get("data", {}).get("category", "")).lower()
+        is_scam = category == "scam"
 
         if is_scam and not session.scam_alerted:
             session.scam_alerted = True
-            await _ui_send({"type": "scam_alert", "score": round(score, 2), "label": label})
+            await _ui_send({"type": "scam_alert", "score": 1.0, "label": category})
         elif not is_scam and session.scam_alerted:
             session.scam_alerted = False
             await _ui_send({"type": "scam_clear"})
@@ -145,7 +150,8 @@ async def check_scam(text: str):
 async def caller_stream(ws: WebSocket):
     await ws.accept()
     session.caller_ws = ws
-    session.audio_queue = asyncio.Queue()
+    audio_queue = asyncio.Queue()
+    session.audio_queue = audio_queue
     session.transcript = ""
     session.current_words = []
     session.scam_alerted = False
@@ -155,7 +161,7 @@ async def caller_stream(ws: WebSocket):
         session.silence_task.cancel()
         session.silence_task = None
 
-    stt_task = asyncio.create_task(run_stt(session.audio_queue))
+    stt_task = asyncio.create_task(run_stt(audio_queue))
     await _ui_send({"type": "status", "text": "caller_connected"})
     asyncio.create_task(warmup_tts())
 
@@ -164,15 +170,19 @@ async def caller_stream(ws: WebSocket):
             if not session.audio_started:
                 session.audio_started = True
                 await _ui_send({"type": "status", "text": "audio_streaming"})
-            await session.audio_queue.put(message)
+            await audio_queue.put(message)
     except WebSocketDisconnect:
         pass
     finally:
+        if session.stream_retire_task:
+            session.stream_retire_task.cancel()
+            session.stream_retire_task = None
         await retire_tts_stream()
-        await session.audio_queue.put(None)
+        await audio_queue.put(None)
         await stt_task
         session.caller_ws = None
-        session.audio_queue = None
+        if session.audio_queue is audio_queue:
+            session.audio_queue = None
         session.scam_alerted = False
         await _ui_send({"type": "scam_clear"})
         await _ui_send({"type": "status", "text": "caller_disconnected"})
@@ -277,15 +287,28 @@ async def ask_ai(user_text: str):
     await speak(reply)
 
 
+async def _auto_retire_stream():
+    """Close TTS stream after 2 s of inactivity, then pre-warm for next use."""
+    await asyncio.sleep(2.0)
+    session.stream_retire_task = None
+    await retire_tts_stream()
+    if session.caller_ws and session.caller_ws.client_state == WebSocketState.CONNECTED:
+        asyncio.create_task(warmup_tts())
+
+
 async def speak_phrase(text: str):
-    """Send a complete phrase to TTS, flush it, and pre-warm the next connection."""
+    """Send a phrase to TTS, keeping the stream open for subsequent phrases."""
     if not session.caller_ws:
         return
+    if session.stream_retire_task:
+        session.stream_retire_task.cancel()
+        session.stream_retire_task = None
     await _ensure_tts_stream()
-    await session.tts_queue.put({"text": text, "display": True})
-    await retire_tts_stream()
-    if session.caller_ws:
-        asyncio.create_task(warmup_tts())
+    queue = session.tts_queue
+    if queue is None:
+        return
+    await queue.put({"text": text, "display": True})
+    session.stream_retire_task = asyncio.create_task(_auto_retire_stream())
 
 
 async def speak(text: str):
@@ -392,6 +415,9 @@ async def stream_word(word: str):
 
 async def stream_done():
     """Signal end of typing — flush remaining audio and close TTS stream."""
+    if session.stream_retire_task:
+        session.stream_retire_task.cancel()
+        session.stream_retire_task = None
     if session.tts_queue is not None:
         await session.tts_queue.put(None)  # EOS sentinel
 

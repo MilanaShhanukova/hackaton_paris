@@ -260,6 +260,54 @@
     }
     .ai-toggle.on { background: #2f8b67; }
     .composer { grid-template-columns: 1fr 48px 48px; }
+
+    /* ── Login overlay ── */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.72);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(6px);
+    }
+    .login-card {
+      width: min(100%, 400px);
+      background: #f5f1e8;
+      color: #161616;
+      border-radius: 28px;
+      padding: 36px 28px 28px;
+      display: flex; flex-direction: column; gap: 22px;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    }
+    .login-card h2 { font-size: 20px; font-weight: 700; margin: 0; }
+    .login-card p  { font-size: 13px; color: #69645a; margin: -14px 0 0; }
+    .login-fields  { display: flex; flex-direction: column; gap: 12px; }
+    .login-row2    { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .login-field   { display: flex; flex-direction: column; gap: 5px; }
+    .login-field label {
+      font-size: 11px; font-weight: 600; color: #69645a; letter-spacing: 0.3px;
+    }
+    .login-field label .req { color: #c0392b; margin-left: 2px; }
+    .login-field label .opt { color: #9a9286; font-weight: 400; margin-left: 3px; }
+    .login-field input {
+      background: #fffaf2; color: #151515;
+      border: 1px solid rgba(0,0,0,0.13); border-radius: 10px;
+      padding: 10px 12px; font-size: 14px; font-family: inherit; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .login-field input:focus {
+      border-color: #557f73;
+      box-shadow: 0 0 0 3px rgba(85,127,115,0.18);
+    }
+    .login-field input.err { border-color: #c0392b; }
+    .login-errmsg { font-size: 12px; color: #c0392b; min-height: 16px; }
+    .login-submit {
+      background: #234f45; color: #f7fff9;
+      border: 0; border-radius: 14px;
+      padding: 14px; font-size: 15px; font-weight: 600;
+      font-family: inherit; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .login-submit:hover { background: #1c4039; }
     @media (max-width: 520px) {
       .shell { padding: 0; }
       .phone {
@@ -293,6 +341,12 @@
       const [showClone, setShowClone] = useState(false);
       const [cloneStatus, setCloneStatus] = useState("");
       const [aiMode, setAiMode] = useState(false);
+      const [showLogin, setShowLogin] = useState(() => !localStorage.getItem("userProfile"));
+      const [loginErr, setLoginErr] = useState("");
+      const loginNameRef = useRef(null);
+      const loginEmailRef = useRef(null);
+      const loginAgeRef = useRef(null);
+      const loginLocRef = useRef(null);
       const wsRef = useRef(null);
       const scrollerRef = useRef(null);
       const cloneFileRef = useRef(null);
@@ -420,6 +474,21 @@
         setDraft("");
       }
 
+      function submitLogin(e) {
+        e.preventDefault();
+        const name  = loginNameRef.current?.value.trim();
+        const email = loginEmailRef.current?.value.trim();
+        const age   = loginAgeRef.current?.value.trim();
+        const loc   = loginLocRef.current?.value.trim();
+        if (!name)  { setLoginErr("Name is required."); return; }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          setLoginErr("A valid email address is required."); return;
+        }
+        localStorage.setItem("userProfile", JSON.stringify({ name, email, age, location: loc }));
+        setShowLogin(false);
+        setLoginErr("");
+      }
+
       function toggleAi() {
         const ws = wsRef.current;
         if (ws?.readyState === WebSocket.OPEN)
@@ -440,7 +509,36 @@
         }
       }
 
-      return h("main", { className: "shell" },
+      return h(React.Fragment, null,
+        showLogin && h("div", { className: "login-overlay" },
+          h("div", { className: "login-card" },
+            h("h2", null, "Welcome"),
+            h("p", null, "Tell us a bit about you to get started"),
+            h("form", { className: "login-fields", onSubmit: submitLogin, noValidate: true },
+              h("div", { className: "login-row2" },
+                h("div", { className: "login-field" },
+                  h("label", null, "Name", h("span", { className: "req" }, " *")),
+                  h("input", { ref: loginNameRef, type: "text", placeholder: "Alex Martin", defaultValue: "Alex Martin", autoComplete: "name" })
+                ),
+                h("div", { className: "login-field" },
+                  h("label", null, "Age", h("span", { className: "opt" }, " (optional)")),
+                  h("input", { ref: loginAgeRef, type: "number", min: "1", max: "120", placeholder: "28", defaultValue: "28" })
+                )
+              ),
+              h("div", { className: "login-field" },
+                h("label", null, "Email", h("span", { className: "req" }, " *")),
+                h("input", { ref: loginEmailRef, type: "email", placeholder: "alex.martin@email.com", defaultValue: "alex.martin@email.com", autoComplete: "email" })
+              ),
+              h("div", { className: "login-field" },
+                h("label", null, "Location", h("span", { className: "opt" }, " (optional)")),
+                h("input", { ref: loginLocRef, type: "text", placeholder: "Paris, France", defaultValue: "Paris, France" })
+              ),
+              h("p", { className: "login-errmsg" }, loginErr),
+              h("button", { className: "login-submit", type: "submit" }, "Continue →")
+            )
+          )
+        ),
+        h("main", { className: "shell" },
         h("section", { className: "phone", "aria-label": "Your iPhone UI" },
           h("div", { className: "top" },
             h("div", { className: "statusbar" },
@@ -509,6 +607,7 @@
               )
             )
           )
+        )
         )
       );
     }

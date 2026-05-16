@@ -16,6 +16,7 @@
       padding: 20px;
       gap: 14px;
     }
+
     header { display: flex; align-items: center; gap: 10px; }
     h1 { font-size: 16px; font-weight: 600; color: #ccc; }
     .dot {
@@ -26,81 +27,80 @@
     .dot.speaking  { background: #2196f3; box-shadow: 0 0 6px #2196f366; }
     #status-text { font-size: 12px; color: #555; margin-left: auto; }
 
-    #transcript {
+    #call-link {
+      font-size: 12px; color: #444;
+      background: #161616; border: 1px solid #222; border-radius: 8px;
+      padding: 8px 12px; display: flex; align-items: center; gap: 8px;
+    }
+    #call-link span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #call-link button { padding: 4px 10px; font-size: 11px; border-radius: 6px; }
+
+    /* ── Conversation ── */
+    #conversation {
       flex: 1;
-      background: #161616;
-      border: 1px solid #222;
-      border-radius: 14px;
-      padding: 24px;
-      font-size: 26px;
-      line-height: 1.5;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 4px 2px;
+    }
+
+    .bubble {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 18px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    /* caller bubbles — left, grey */
+    .bubble.caller {
+      align-self: flex-start;
+      background: #1e1e1e;
       color: #ddd;
+      border-bottom-left-radius: 4px;
     }
-    #transcript.interim { color: #666; }
-    #transcript.empty   { color: #333; font-style: italic; font-size: 18px; }
-
-    #history {
-      background: #161616;
-      border: 1px solid #222;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 13px;
-      color: #555;
-      max-height: 72px;
-      overflow-y: auto;
-      display: none;
+    .bubble.caller.interim {
+      color: #666;
+      background: #191919;
     }
 
+    /* your replies — right, blue-tinted */
+    .bubble.you {
+      align-self: flex-end;
+      background: #1a2a3a;
+      color: #9dc8f0;
+      border-bottom-right-radius: 4px;
+      font-size: 16px;
+    }
+
+    .empty-hint {
+      color: #333; font-style: italic; font-size: 15px;
+      text-align: center; margin-top: 40px;
+    }
+
+    /* ── Reply input ── */
     .reply-row { display: flex; gap: 10px; align-items: flex-end; }
     textarea {
       flex: 1;
-      background: #1a1a1a;
-      color: #e8e8e8;
-      border: 1px solid #2a2a2a;
-      border-radius: 12px;
-      padding: 14px 16px;
-      font-size: 16px;
-      line-height: 1.4;
-      resize: none;
-      outline: none;
-      font-family: inherit;
+      background: #1a1a1a; color: #e8e8e8;
+      border: 1px solid #2a2a2a; border-radius: 12px;
+      padding: 14px 16px; font-size: 16px; line-height: 1.4;
+      resize: none; outline: none; font-family: inherit;
       transition: border-color 0.2s;
     }
     textarea:focus { border-color: #444; }
     textarea::placeholder { color: #3a3a3a; }
     button {
-      background: #222;
-      color: #ccc;
-      border: 1px solid #333;
-      border-radius: 12px;
-      padding: 14px 18px;
-      font-size: 14px;
-      font-family: inherit;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.15s;
+      background: #222; color: #ccc;
+      border: 1px solid #333; border-radius: 12px;
+      padding: 14px 18px; font-size: 14px;
+      font-family: inherit; cursor: pointer;
+      white-space: nowrap; transition: background 0.15s;
     }
     button:hover { background: #2a2a2a; }
     .hint { font-size: 11px; color: #333; text-align: right; }
-
-    #call-link {
-      font-size: 12px;
-      color: #444;
-      background: #161616;
-      border: 1px solid #222;
-      border-radius: 8px;
-      padding: 8px 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    #call-link span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #call-link button {
-      padding: 4px 10px;
-      font-size: 11px;
-      border-radius: 6px;
-    }
   </style>
 </head>
 <body>
@@ -112,12 +112,13 @@
   </header>
 
   <div id="call-link">
-    <span id="link-text">Share this link with the caller:</span>
+    <span id="link-text"></span>
     <button onclick="copyLink()">Copy link</button>
   </div>
 
-  <div id="transcript" class="empty">Caller's words will appear here…</div>
-  <div id="history"></div>
+  <div id="conversation">
+    <p class="empty-hint">Conversation will appear here…</p>
+  </div>
 
   <div class="reply-row">
     <textarea id="reply" rows="2" placeholder="Type your reply and press Enter…"></textarea>
@@ -128,17 +129,53 @@
   <script>
     const dot = document.getElementById("dot");
     const statusText = document.getElementById("status-text");
-    const transcriptEl = document.getElementById("transcript");
-    const historyEl = document.getElementById("history");
+    const conv = document.getElementById("conversation");
     const replyEl = document.getElementById("reply");
     const linkEl = document.getElementById("link-text");
 
-    // Build the caller link from the current host (works with ngrok too)
     const callerUrl = `${location.protocol}//${location.host}/call`;
     linkEl.textContent = callerUrl;
+    function copyLink() { navigator.clipboard.writeText(callerUrl); }
 
-    function copyLink() {
-      navigator.clipboard.writeText(callerUrl);
+    // The live interim bubble (replaced until finalized)
+    let interimBubble = null;
+
+    function addCallerBubble(text, interim) {
+      if (interim) {
+        // reuse or create the interim bubble
+        if (!interimBubble) {
+          interimBubble = document.createElement("div");
+          interimBubble.className = "bubble caller interim";
+          // remove empty hint on first message
+          conv.querySelector(".empty-hint")?.remove();
+          conv.appendChild(interimBubble);
+        }
+        interimBubble.textContent = text;
+      } else {
+        // finalize: turn the interim bubble into a permanent one
+        if (interimBubble) {
+          interimBubble.textContent = text;
+          interimBubble.className = "bubble caller";
+          interimBubble = null;
+        } else {
+          // final came without interim (short utterance)
+          conv.querySelector(".empty-hint")?.remove();
+          const b = document.createElement("div");
+          b.className = "bubble caller";
+          b.textContent = text;
+          conv.appendChild(b);
+        }
+      }
+      conv.scrollTop = conv.scrollHeight;
+    }
+
+    function addYourBubble(text) {
+      conv.querySelector(".empty-hint")?.remove();
+      const b = document.createElement("div");
+      b.className = "bubble you";
+      b.textContent = text;
+      conv.appendChild(b);
+      conv.scrollTop = conv.scrollHeight;
     }
 
     const ws = new WebSocket(`ws://${location.host}/ui`);
@@ -149,18 +186,13 @@
       const msg = JSON.parse(data);
 
       if (msg.type === "transcript") {
-        transcriptEl.textContent = msg.text;
-        transcriptEl.className = msg.final ? "" : "interim";
+        addCallerBubble(msg.text, !msg.final);
       }
 
       if (msg.type === "status") {
-        if (msg.text === "caller_connected") setStatus("on call", true);
-        else if (msg.text === "speaking")    setStatus("speaking…", true, true);
-        else if (msg.text === "caller_disconnected") {
-          setStatus("waiting for caller", false);
-          transcriptEl.textContent = "Caller disconnected.";
-          transcriptEl.className = "";
-        }
+        if (msg.text === "caller_connected")    setStatus("on call", true);
+        else if (msg.text === "speaking")        setStatus("speaking…", true, true);
+        else if (msg.text === "caller_disconnected") setStatus("waiting for caller", false);
       }
     };
 
@@ -173,13 +205,7 @@
       const text = replyEl.value.trim();
       if (!text || ws.readyState !== WebSocket.OPEN) return;
       ws.send(JSON.stringify({ type: "speak", text }));
-
-      const line = document.createElement("div");
-      line.textContent = "You: " + text;
-      historyEl.appendChild(line);
-      historyEl.style.display = "block";
-      historyEl.scrollTop = historyEl.scrollHeight;
-
+      addYourBubble(text);
       replyEl.value = "";
     }
 

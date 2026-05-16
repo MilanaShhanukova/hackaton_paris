@@ -42,6 +42,11 @@ gradium_client = GradiumClient(api_key=GRADIUM_API_KEY)
 
 @app.on_event("startup")
 async def open_tunnel():
+    if not NGROK_AUTHTOKEN:
+        print("\n  No NGROK_AUTHTOKEN set — tunnel skipped.")
+        print("  Get a free token at https://dashboard.ngrok.com/get-started/your-authtoken")
+        print("  Add it to .env as NGROK_AUTHTOKEN=...\n")
+        return
     listener = await ngrok.forward(8000, authtoken=NGROK_AUTHTOKEN)
     print(f"\n  Caller link → {listener.url()}/call\n")
 

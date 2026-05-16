@@ -238,6 +238,28 @@
     }
     .clone-status { font-size: 12px; color: #69645a; }
     .voice-count { font-size: 11px; color: #9a9286; white-space: nowrap; flex-shrink: 0; }
+    .ai {
+      align-self: flex-end;
+      background: #1a3d2a;
+      color: #7de8a8;
+      border-bottom-right-radius: 5px;
+    }
+    .ai-toggle {
+      width: 48px;
+      height: 48px;
+      border: 0;
+      border-radius: 50%;
+      color: #fff;
+      background: #bcb5aa;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      transition: background 0.2s;
+    }
+    .ai-toggle.on { background: #2f8b67; }
+    .composer { grid-template-columns: 1fr 48px 48px; }
     @media (max-width: 520px) {
       .shell { padding: 0; }
       .phone {
@@ -270,6 +292,7 @@
       const [voiceId, setVoiceId] = useState("");
       const [showClone, setShowClone] = useState(false);
       const [cloneStatus, setCloneStatus] = useState("");
+      const [aiMode, setAiMode] = useState(false);
       const wsRef = useRef(null);
       const scrollerRef = useRef(null);
       const cloneFileRef = useRef(null);
@@ -305,6 +328,12 @@
             } else {
               setInterim(msg.text || "");
             }
+          }
+          if (msg.type === "ai_reply") {
+            setItems((rows) => [...rows, makeClientEntry("ai", msg.text)]);
+          }
+          if (msg.type === "ai_mode") {
+            setAiMode(msg.enabled);
           }
           if (msg.type === "status") {
             if (msg.text === "caller_connected") setCallerConnected(true);
@@ -391,6 +420,12 @@
         setDraft("");
       }
 
+      function toggleAi() {
+        const ws = wsRef.current;
+        if (ws?.readyState === WebSocket.OPEN)
+          ws.send(JSON.stringify({ type: "toggle_ai" }));
+      }
+
       function warmupTts() {
         const ws = wsRef.current;
         if (ws?.readyState === WebSocket.OPEN) {
@@ -450,9 +485,10 @@
             items.length === 0 && !interim
               ? h("p", { className: "empty" }, "Caller speech will appear here. Submit a reply to speak it back.")
               : null,
-            items.map((item) =>
-              h("div", { key: item.id, className: `bubble ${item.speaker === "operator" ? "operator" : "caller"}` }, item.text)
-            ),
+            items.map((item) => {
+              const cls = item.speaker === "operator" ? "operator" : item.speaker === "ai" ? "ai" : "caller";
+              return h("div", { key: item.id, className: `bubble ${cls}` }, item.text);
+            }),
             interim ? h("div", { className: "bubble caller interim" }, interim) : null
           ),
           h("div", { className: "debug" }, `Relay: ${lastEvent}`),
@@ -465,6 +501,7 @@
               onKeyDown,
               onFocus: warmupTts
             }),
+            h("button", { className: `ai-toggle${aiMode ? " on" : ""}`, onClick: toggleAi, title: aiMode ? "AI mode ON — tap to disable" : "Enable AI auto-reply" }, "AI"),
             h("button", { className: "send", onClick: submit, disabled: !draft.trim(), "aria-label": "Send reply" },
               h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" },
                 h("path", { d: "M12 19V5" }),

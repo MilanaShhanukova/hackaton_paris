@@ -42,7 +42,7 @@ AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini")
 
 SCAM_API_KEY = "pio_sk_b1ba44eb-c276-406f-be86-6faf73d7f77e_t1g3r_AWfFlOIN2Eys404T"
 SCAM_API_URL = "https://agent.pioneer.ai/finetuning/051f32a2-9b09-471f-b777-21a55af242b4"
-SCAM_THRESHOLD = float(os.getenv("SCAM_THRESHOLD", "0.7"))
+SCAM_THRESHOLD = float(os.getenv("SCAM_THRESHOLD", "0.45"))
 
 # 16 kHz signed-16-bit PCM — supported by both Gradium and Web Audio API
 PCM_FORMAT = "pcm_16000"

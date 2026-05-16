@@ -20,6 +20,7 @@ from pathlib import Path
 
 import ngrok
 from gradium import GradiumClient
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -31,6 +32,8 @@ load_dotenv()
 GRADIUM_API_KEY = os.environ["GRADIUM_API_KEY"]
 GRADIUM_VOICE_ID = os.getenv("GRADIUM_VOICE_ID", "YTpq7expH9539ERJ")
 NGROK_AUTHTOKEN = os.getenv("NGROK_AUTHTOKEN")
+OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+AI_MODEL = "gpt-4o-mini"
 
 # 16 kHz signed-16-bit PCM — supported by both Gradium and Web Audio API
 PCM_FORMAT = "pcm_16000"
@@ -39,6 +42,7 @@ SAMPLE_RATE = 16000
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 gradium_client = GradiumClient(api_key=GRADIUM_API_KEY)
+openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 
 @app.on_event("startup")
@@ -68,6 +72,8 @@ class Session:
     current_words: list = []      # words accumulating in current sentence
     silence_task: object = None   # asyncio Task — fires after pause to lock bubble
     voice_id: str = GRADIUM_VOICE_ID
+    ai_mode: bool = False
+    conversation_history: list = []
 
 
 session = Session()
@@ -86,6 +92,8 @@ async def _finalize_segment():
     packet = {"type": "transcript", "text": text, "full": session.transcript, "final": True}
     await _ui_send(packet)
     await _caller_send(packet)
+    if session.ai_mode:
+        asyncio.create_task(ask_ai(text))
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +169,25 @@ async def run_stt(audio_queue: asyncio.Queue):
         await asyncio.gather(sender(), receiver())
 
 
+async def ask_ai(user_text: str):
+    """Send the latest transcript to GPT and pipe the reply through TTS."""
+    session.conversation_history.append({"role": "user", "content": user_text})
+
+    response = await openai_client.chat.completions.create(
+        model=AI_MODEL,
+        messages=[
+            {"role": "system", "content": "You are a helpful voice assistant. Keep answers concise and conversational."},
+            *session.conversation_history,
+        ],
+    )
+
+    reply = response.choices[0].message.content
+    session.conversation_history.append({"role": "assistant", "content": reply})
+
+    await _ui_send({"type": "ai_reply", "text": reply})
+    await speak(reply)
+
+
 # ---------------------------------------------------------------------------
 # Operator UI WebSocket — receives speak commands, sends TTS back to caller
 # ---------------------------------------------------------------------------
@@ -177,6 +204,11 @@ async def ui_socket(ws: WebSocket):
                 await warmup_tts()
             elif t == "stream_word" and msg.get("word"):
                 await stream_word(msg["word"])
+            elif msg.get("type") == "toggle_ai":
+                session.ai_mode = not session.ai_mode
+                if not session.ai_mode:
+                    session.conversation_history.clear()
+                await _ui_send({"type": "ai_mode", "enabled": session.ai_mode})
             elif t == "stream_done":
                 await stream_done()
             elif t == "set_voice" and msg.get("voice_id"):

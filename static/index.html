@@ -100,6 +100,11 @@
       white-space: nowrap; transition: background 0.15s;
     }
     button:hover { background: #2a2a2a; }
+    button.ai-on {
+      background: #1a2f1a; color: #6fcf6f;
+      border-color: #2a4a2a;
+    }
+    button.ai-on:hover { background: #1e361e; }
     .hint { font-size: 11px; color: #333; text-align: right; }
 
     /* ── Voice panel ── */
@@ -134,6 +139,23 @@
     }
     #voice-file { font-size: 11px; color: #555; flex: 1; }
     #clone-status { font-size: 11px; color: #555; }
+    
+    
+    /* AI reply bubbles — right, green-tinted */
+    .bubble.ai {
+      align-self: flex-end;
+      background: #1a2f1a;
+      color: #6fcf6f;
+      border-bottom-right-radius: 4px;
+      font-size: 16px;
+    }
+    .bubble.ai::before {
+      content: "AI  ";
+      font-size: 11px;
+      opacity: 0.6;
+      display: block;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -170,9 +192,10 @@
 
   <div class="reply-row">
     <textarea id="reply" rows="2" placeholder="Type your reply and press Enter…"></textarea>
+    <button id="ai-btn" title="Toggle AI auto-reply mode">AI</button>
     <button id="send-btn">Send ↵</button>
   </div>
-  <p class="hint">Enter → send &nbsp;·&nbsp; Shift+Enter → new line</p>
+  <p class="hint">Enter → send &nbsp;·&nbsp; Shift+Enter → new line &nbsp;·&nbsp; AI button → auto-reply mode</p>
 
   <script>
     const dot = document.getElementById("dot");
@@ -180,6 +203,7 @@
     const conv = document.getElementById("conversation");
     const replyEl = document.getElementById("reply");
     const linkEl = document.getElementById("link-text");
+    const aiBtnEl = document.getElementById("ai-btn");
 
     const callerUrl = `${location.protocol}//${location.host}/type`;
     linkEl.textContent = "Share with the other person: " + callerUrl;
@@ -345,6 +369,7 @@
     });
 
     document.getElementById("send-btn").onclick = send;
+    aiBtnEl.onclick = () => ws.send(JSON.stringify({ type: "toggle_ai" }));
     replyEl.addEventListener("keydown", e => {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
     });

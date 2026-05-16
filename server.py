@@ -408,9 +408,23 @@ async def _run_streaming_tts(
 
         async def sender():
             words = []
+            buf = []
+
+            async def flush():
+                nonlocal buf
+                if buf:
+                    await tts.send_text(" ".join(buf) + " ")
+                    buf = []
+
             while True:
-                item = await tts_queue.get()
+                try:
+                    item = await asyncio.wait_for(tts_queue.get(), timeout=0.08)
+                except asyncio.TimeoutError:
+                    await flush()
+                    continue
+
                 if item is None:
+                    await flush()
                     await tts.send_eos()
                     if words:
                         await _caller_send({"type": "reply", "text": " ".join(words), "final": True})
@@ -420,9 +434,14 @@ async def _run_streaming_tts(
                 text = item["text"]
                 if item.get("display", True):
                     words.append(text)
-                await tts.send_text(text + " ")
-                if item.get("display", True):
+                    buf.append(text)
                     await _caller_send({"type": "reply", "text": " ".join(words), "final": False})
+                else:
+                    buf.append(text)
+
+                # Flush immediately on sentence/clause boundaries
+                if text.rstrip().endswith(('.', '!', '?', ',', ';', ':')):
+                    await flush()
 
         async def receiver():
             async for msg in tts:

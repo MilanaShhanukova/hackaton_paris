@@ -364,15 +364,6 @@
       font-size: 16px; color: #c04040; padding: 0 2px;
       line-height: 1;
     }
-    .voice-count { font-size: 11px; color: #9a9286; white-space: nowrap; flex-shrink: 0; }
-    .ai {
-      align-self: flex-end;
-      background: #1a3d2a;
-      color: #7de8a8;
-      border-bottom-right-radius: 5px;
-    }
-    .clone-status { font-size: 12px; color: #666666; }
-    .voice-count { font-size: 11px; color: #8b8b86; white-space: nowrap; flex-shrink: 0; }
     @media (max-width: 900px) {
       .ear-collage {
         inset: 132px 0 0;
@@ -390,9 +381,6 @@
         border-radius: 34px;
       }
     }
-    .ai-toggle.on { background: #2f8b67; }
-    .composer { grid-template-columns: 1fr 48px 48px; }
-
     /* ── Login overlay ── */
     .login-overlay {
       position: fixed; inset: 0; z-index: 100;
@@ -763,81 +751,6 @@
         }
       }
 
-      const phoneView = h("section", { className: "phone", "aria-label": "Your iPhone UI" },
-        h("div", { className: "top" },
-          h("div", { className: "statusbar" },
-            h("span", null, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
-            h("div", { className: "island", "aria-hidden": "true" }),
-            h("span", null, "5G")
-          ),
-          h("div", { className: "head" },
-            h("div", null,
-              h("h1", null, "Your iPhone UI"),
-              h("p", { className: "sub" }, callerConnected ? "Live Gradium transcript" : "Share /call with the caller")
-            ),
-            h("div", { className: "pill" },
-              h("span", { className: `led ${callerConnected ? "on" : ""}` }),
-              statusLabel
-            )
-          ),
-          h("div", { className: "voice-row" },
-            h("select", {
-              className: "voice-select",
-              value: voiceId || "",
-              onChange: (e) => changeVoice(e.target.value)
-            },
-              voices.length === 0
-                ? h("option", { key: "loading", value: "" }, "Loading voices…")
-                : voices.map(v =>
-                    h("option", { key: v.uid, value: v.uid },
-                      v.is_catalog ? v.name : `★ ${v.name}`)
-                  )
-            ),
-            voices.length > 0 && h("span", { className: "voice-count" }, `${voices.length} voices`),
-            h("button", { className: "clone-btn", onClick: () => setShowClone(s => !s) }, "Clone")
-          ),
-          showClone && h("div", { className: "clone-panel" },
-            h("input", { type: "file", accept: "audio/*", ref: cloneFileRef }),
-            h("input", { type: "text", className: "clone-name", placeholder: "Voice name", defaultValue: "My Voice", ref: cloneNameRef }),
-            h("button", { className: "clone-btn", onClick: uploadVoice }, "Upload"),
-            cloneStatus && h("span", { className: "clone-status" }, cloneStatus)
-          )
-        ),
-        h("div", { className: "content", ref: scrollerRef },
-          items.length === 0 && !interim
-            ? h("p", { className: "empty" }, "The live transcript will appear here.")
-            : null,
-          items.map((item) =>
-            h("div", { key: item.id, className: `bubble ${bubbleClass(item.speaker)}` }, item.text)
-          ),
-          aiTyping ? h("div", { className: "bubble ai interim" }, "AI is typing...") : null,
-          interim ? h("div", { className: "bubble caller interim" }, interim) : null
-        ),
-        h("div", { className: "debug" }, `Relay: ${lastEvent}`),
-        h("div", { className: "composer" },
-          h("textarea", {
-            value: draft,
-            placeholder: "Type reply",
-            rows: 1,
-            onInput: onTextInput,
-            onKeyDown,
-            onFocus: warmupTts
-          }),
-          h("button", {
-            className: `ai-toggle${aiMode ? " on" : ""}`,
-            onClick: toggleAi,
-            title: aiMode ? "AI mode on. Tap to disable." : "Enable AI auto-reply.",
-            "aria-label": aiMode ? "Disable AI auto reply" : "Enable AI auto reply"
-          }, "AI"),
-          h("button", { className: "send", onClick: submit, disabled: !draft.trim(), "aria-label": "Send reply" },
-            h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" },
-              h("path", { d: "M12 19V5" }),
-              h("path", { d: "m5 12 7-7 7 7" })
-            )
-          )
-        )
-      );
-
       return h("main", { className: "shell" },
         showLogin && h("div", { className: "login-overlay" },
           h("div", { className: "login-card" },
@@ -867,80 +780,99 @@
             )
           )
         ),
-        h("section", { className: "phone", "aria-label": "Your iPhone UI" },
-          h("div", { className: "top" },
-            h("div", { className: "statusbar" },
-              h("span", null, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
-              h("div", { className: "island", "aria-hidden": "true" }),
-              h("span", null, "5G")
-            ),
-            h("div", { className: "head" },
-              h("div", null,
-                h("h1", null, "Your iPhone UI"),
-                h("p", { className: "sub" }, callerConnected ? "Live Gradium transcript" : "Share /call with the caller")
+        h("div", { className: "ear-collage", "aria-hidden": "true" },
+          [...earImages, ...earImages].map((name, index) =>
+            h("img", {
+              className: "ear-tile",
+              key: `${name}-${index}`,
+              src: `/static/ear-collage/${name}`,
+              alt: "",
+              decoding: "async",
+              fetchPriority: "low"
+            })
+          )
+        ),
+        h("div", { className: "page" },
+          h("section", { className: "hero" },
+            h("h1", { className: "hero-title" }, "Let me pick up your call.")
+          ),
+          h("section", { className: "app-section" },
+            h("section", { className: "phone", "aria-label": "Your iPhone UI" },
+              h("div", { className: "top" },
+                h("div", { className: "statusbar" },
+                  h("span", null, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
+                  h("div", { className: "island", "aria-hidden": "true" }),
+                  h("span", null, "5G")
+                ),
+                h("div", { className: "head" },
+                  h("div", null,
+                    h("h1", null, "Your iPhone UI"),
+                    h("p", { className: "sub" }, callerConnected ? "Live Gradium transcript" : "Share /call with the caller")
+                  ),
+                  h("div", { className: "pill" },
+                    h("span", { className: `led ${callerConnected ? "on" : ""}` }),
+                    statusLabel
+                  )
+                ),
+                h("div", { className: "voice-row" },
+                  h("select", {
+                    className: "voice-select",
+                    value: voiceId || "",
+                    onChange: (e) => changeVoice(e.target.value)
+                  },
+                    voices.length === 0
+                      ? h("option", { key: "loading", value: "" }, "Loading voices…")
+                      : voices.map(v =>
+                          h("option", { key: v.uid, value: v.uid },
+                            v.is_catalog ? v.name : `★ ${v.name}`)
+                        )
+                  ),
+                  voices.length > 0 && h("span", { className: "voice-count" }, `${voices.length} voices`),
+                  h("button", { className: "clone-btn", onClick: () => setShowClone(s => !s) }, "Clone")
+                ),
+                showClone && h("div", { className: "clone-panel" },
+                  h("input", { type: "file", accept: "audio/*", ref: cloneFileRef }),
+                  h("input", { type: "text", className: "clone-name", placeholder: "Voice name", defaultValue: "My Voice", ref: cloneNameRef }),
+                  h("button", { className: "clone-btn", onClick: uploadVoice }, "Upload"),
+                  cloneStatus && h("span", { className: "clone-status" }, cloneStatus)
+                )
               ),
-              h("div", { className: "pill" },
-                h("span", { className: `led ${callerConnected ? "on" : ""}` }),
-                statusLabel
-              )
-            ),
-            h("div", { className: "voice-row" },
-              h("select", {
-                className: "voice-select",
-                value: voiceId || "",
-                onChange: (e) => changeVoice(e.target.value)
-              },
-                voices.length === 0
-                  ? h("option", { key: "loading", value: "" }, "Loading voices…")
-                  : voices.map(v =>
-                      h("option", { key: v.uid, value: v.uid },
-                        v.is_catalog ? v.name : `★ ${v.name}`)
-                    )
+              scamAlert && h("div", { className: "scam-banner" },
+                h("span", { className: "scam-icon" }, "⚠️"),
+                h("div", { className: "scam-text" },
+                  h("strong", null, "Possible scam detected"),
+                  h("span", null, `Confidence: ${Math.round(scamAlert.score * 100)}%  ·  Stay cautious`)
+                ),
+                h("button", { className: "scam-dismiss", onClick: () => setScamAlert(null), "aria-label": "Dismiss" }, "✕")
               ),
-              voices.length > 0 && h("span", { className: "voice-count" }, `${voices.length} voices`),
-              h("button", { className: "clone-btn", onClick: () => setShowClone(s => !s) }, "Clone")
-            ),
-            showClone && h("div", { className: "clone-panel" },
-              h("input", { type: "file", accept: "audio/*", ref: cloneFileRef }),
-              h("input", { type: "text", className: "clone-name", placeholder: "Voice name", defaultValue: "My Voice", ref: cloneNameRef }),
-              h("button", { className: "clone-btn", onClick: uploadVoice }, "Upload"),
-              cloneStatus && h("span", { className: "clone-status" }, cloneStatus)
-            )
-          ),
-          scamAlert && h("div", { className: "scam-banner" },
-            h("span", { className: "scam-icon" }, "⚠️"),
-            h("div", { className: "scam-text" },
-              h("strong", null, "Possible scam detected"),
-              h("span", null, `Confidence: ${Math.round(scamAlert.score * 100)}%  ·  Stay cautious`)
-            ),
-            h("button", { className: "scam-dismiss", onClick: () => setScamAlert(null), "aria-label": "Dismiss" }, "✕")
-          ),
-          h("div", { className: "content", ref: scrollerRef },
-            items.length === 0 && !interim
-              ? h("p", { className: "empty" }, "Caller speech will appear here. Submit a reply to speak it back.")
-              : null,
-            items.map((item) => {
-              const cls = item.speaker === "operator" ? "operator" : item.speaker === "ai" ? "ai" : "caller";
-              return h("div", { key: item.id, className: `bubble ${cls}` }, item.text);
-            }),
-            aiTyping ? h("div", { className: "bubble ai interim" }, "AI is typing...") : null,
-            interim ? h("div", { className: "bubble caller interim" }, interim) : null
-          ),
-          h("div", { className: "debug" }, `Relay: ${lastEvent}`),
-          h("div", { className: "composer" },
-            h("textarea", {
-              value: draft,
-              placeholder: "Type reply",
-              rows: 1,
-              onInput: onTextInput,
-              onKeyDown,
-              onFocus: warmupTts
-            }),
-            h("button", { className: `ai-toggle${aiMode ? " on" : ""}`, onClick: toggleAi, title: aiMode ? "AI mode ON — tap to disable" : "Enable AI auto-reply" }, "AI"),
-            h("button", { className: "send", onClick: submit, disabled: !draft.trim(), "aria-label": "Send reply" },
-              h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" },
-                h("path", { d: "M12 19V5" }),
-                h("path", { d: "m5 12 7-7 7 7" })
+              h("div", { className: "content", ref: scrollerRef },
+                items.length === 0 && !interim
+                  ? h("p", { className: "empty" }, "Caller speech will appear here. Submit a reply to speak it back.")
+                  : null,
+                items.map((item) => {
+                  const cls = item.speaker === "operator" ? "operator" : item.speaker === "ai" ? "ai" : "caller";
+                  return h("div", { key: item.id, className: `bubble ${cls}` }, item.text);
+                }),
+                aiTyping ? h("div", { className: "bubble ai interim" }, "AI is typing...") : null,
+                interim ? h("div", { className: "bubble caller interim" }, interim) : null
+              ),
+              h("div", { className: "debug" }, `Relay: ${lastEvent}`),
+              h("div", { className: "composer" },
+                h("textarea", {
+                  value: draft,
+                  placeholder: "Type reply",
+                  rows: 1,
+                  onInput: onTextInput,
+                  onKeyDown,
+                  onFocus: warmupTts
+                }),
+                h("button", { className: `ai-toggle${aiMode ? " on" : ""}`, onClick: toggleAi, title: aiMode ? "AI mode ON — tap to disable" : "Enable AI auto-reply" }, "AI"),
+                h("button", { className: "send", onClick: submit, disabled: !draft.trim(), "aria-label": "Send reply" },
+                  h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" },
+                    h("path", { d: "M12 19V5" }),
+                    h("path", { d: "m5 12 7-7 7 7" })
+                  )
+                )
               )
             )
           )

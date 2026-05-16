@@ -237,6 +237,30 @@
       width: 100%;
     }
     .clone-status { font-size: 12px; color: #69645a; }
+    .scam-banner {
+      margin: 0 16px;
+      padding: 12px 16px;
+      background: #fde8e8;
+      border: 1.5px solid #e05a5a;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: scam-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes scam-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(224,90,90,0.0); }
+      50%       { box-shadow: 0 0 0 6px rgba(224,90,90,0.18); }
+    }
+    .scam-icon { font-size: 20px; flex-shrink: 0; }
+    .scam-text { flex: 1; }
+    .scam-text strong { font-size: 13px; color: #b02020; display: block; }
+    .scam-text span   { font-size: 11px; color: #c04040; }
+    .scam-dismiss {
+      background: none; border: none; cursor: pointer;
+      font-size: 16px; color: #c04040; padding: 0 2px;
+      line-height: 1;
+    }
     .voice-count { font-size: 11px; color: #9a9286; white-space: nowrap; flex-shrink: 0; }
     .ai {
       align-self: flex-end;
@@ -341,6 +365,7 @@
       const [showClone, setShowClone] = useState(false);
       const [cloneStatus, setCloneStatus] = useState("");
       const [aiMode, setAiMode] = useState(false);
+      const [scamAlert, setScamAlert] = useState(null); // null | { score, label }
       const [showLogin, setShowLogin] = useState(() => !localStorage.getItem("userProfile"));
       const [loginErr, setLoginErr] = useState("");
       const loginNameRef = useRef(null);
@@ -384,6 +409,12 @@
             } else {
               setInterim(msg.text || "");
             }
+          }
+          if (msg.type === "scam_alert") {
+            setScamAlert({ score: msg.score, label: msg.label });
+          }
+          if (msg.type === "scam_clear") {
+            setScamAlert(null);
           }
           if (msg.type === "ai_reply") {
             setItems((rows) => [...rows, makeClientEntry("ai", msg.text)]);
@@ -580,6 +611,14 @@
               h("button", { className: "clone-btn", onClick: uploadVoice }, "Upload"),
               cloneStatus && h("span", { className: "clone-status" }, cloneStatus)
             )
+          ),
+          scamAlert && h("div", { className: "scam-banner" },
+            h("span", { className: "scam-icon" }, "⚠️"),
+            h("div", { className: "scam-text" },
+              h("strong", null, "Possible scam detected"),
+              h("span", null, `Confidence: ${Math.round(scamAlert.score * 100)}%  ·  Stay cautious`)
+            ),
+            h("button", { className: "scam-dismiss", onClick: () => setScamAlert(null), "aria-label": "Dismiss" }, "✕")
           ),
           h("div", { className: "content", ref: scrollerRef },
             items.length === 0 && !interim

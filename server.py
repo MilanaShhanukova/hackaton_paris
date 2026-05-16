@@ -18,6 +18,7 @@ import os
 import tempfile
 from pathlib import Path
 
+import httpx
 import ngrok
 from gradium import GradiumClient
 from openai import AsyncOpenAI
@@ -34,6 +35,10 @@ GRADIUM_VOICE_ID = os.getenv("GRADIUM_VOICE_ID", "YTpq7expH9539ERJ")
 NGROK_AUTHTOKEN = os.getenv("NGROK_AUTHTOKEN")
 OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
 AI_MODEL = "gpt-4o-mini"
+
+SCAM_API_KEY = "pio_sk_b1ba44eb-c276-406f-be86-6faf73d7f77e_t1g3r_AWfFlOIN2Eys404T"
+SCAM_API_URL = "https://agent.pioneer.ai/finetuning/051f32a2-9b09-471f-b777-21a55af242b4"
+SCAM_THRESHOLD = float(os.getenv("SCAM_THRESHOLD", "0.7"))
 
 # 16 kHz signed-16-bit PCM — supported by both Gradium and Web Audio API
 PCM_FORMAT = "pcm_16000"
@@ -75,6 +80,7 @@ class Session:
     ai_mode: bool = False
     conversation_history: list = []
     user_profile: dict = {}
+    scam_alerted: bool = False
 
 
 session = Session()
@@ -95,6 +101,34 @@ async def _finalize_segment():
     await _caller_send(packet)
     if session.ai_mode:
         asyncio.create_task(ask_ai(text))
+    asyncio.create_task(check_scam(text))
+
+
+async def check_scam(text: str):
+    """Send each finalized segment to the Pioneer scam-detection model and alert the UI."""
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            resp = await client.post(
+                SCAM_API_URL,
+                headers={"Authorization": f"Bearer {SCAM_API_KEY}"},
+                json={"text": text, "full_transcript": session.transcript},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        score = float(data.get("score", data.get("confidence", data.get("probability", 0))))
+        label = str(data.get("label", "")).lower()
+        is_scam = (label in ("scam", "fraud")) or (score >= SCAM_THRESHOLD)
+
+        if is_scam and not session.scam_alerted:
+            session.scam_alerted = True
+            await _ui_send({"type": "scam_alert", "score": round(score, 2), "label": label})
+        elif not is_scam and session.scam_alerted:
+            session.scam_alerted = False
+            await _ui_send({"type": "scam_clear"})
+
+    except Exception as exc:
+        print(f"[scam] check failed: {exc}")
 
 
 # ---------------------------------------------------------------------------

@@ -6,182 +6,281 @@
   <title>Your iPhone UI</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body, #root { height: 100%; margin: 0; }
+    html, body, #root { min-height: 100%; margin: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
-      background: #111315;
-      color: #f4f5f2;
-      overflow: hidden;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      background: #f5f5f7;
+      color: #111111;
+      overflow-x: hidden;
     }
-    button, textarea { font: inherit; }
+    button, textarea, select, input { font: inherit; }
     .shell {
       min-height: 100%;
+      position: relative;
+      background: #111111;
+      overflow: hidden;
+    }
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      background: linear-gradient(180deg, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.26) 34%, rgba(0,0,0,0.18) 100%);
+    }
+    .ear-collage {
+      position: absolute;
+      inset: clamp(140px, 18vw, 220px) 0 0;
       display: grid;
-      place-items: center;
-      padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
-      background:
-        radial-gradient(circle at 20% 0%, rgba(88, 141, 132, 0.28), transparent 32%),
-        linear-gradient(145deg, #151719 0%, #0d0e10 100%);
+      grid-template-columns: repeat(8, minmax(120px, 1fr));
+      grid-auto-rows: clamp(92px, 11vw, 158px);
+      grid-auto-flow: dense;
+      gap: 0;
+      filter: blur(1.4px);
+      transform: scale(1.01);
+      transform-origin: top center;
+      opacity: 0.92;
+    }
+    .ear-tile {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .ear-tile:nth-child(3n) {
+      filter: saturate(0.78) contrast(1.04);
+    }
+    .ear-tile:nth-child(4n) {
+      filter: saturate(1.08) brightness(0.92);
+    }
+    .ear-tile:nth-child(5n) {
+      grid-row: span 2;
+    }
+    .ear-tile:nth-child(6n + 1) {
+      grid-column: span 2;
+      grid-row: span 2;
+    }
+    .ear-tile:nth-child(7n + 3) {
+      grid-column: span 2;
+    }
+    .ear-tile:nth-child(11n + 4) {
+      grid-row: span 3;
+    }
+    .ear-tile:nth-child(13n + 2) {
+      grid-column: span 3;
+      grid-row: span 2;
+    }
+    .page {
+      position: relative;
+      z-index: 2;
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 44px 24px 72px;
+    }
+    .hero {
+      padding: 50px 0 28px;
+      text-align: center;
+    }
+    .hero-title {
+      max-width: 820px;
+      margin: 0 auto;
+      color: #ffffff;
+      text-shadow: 0 8px 34px rgba(0,0,0,0.52);
+      font-size: clamp(44px, 8vw, 86px);
+      line-height: 0.96;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .app-section {
+      width: fit-content;
+      margin: 10px auto 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 12px;
+      border-radius: 38px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.24);
+      box-shadow: 0 22px 60px rgba(0,0,0,0.34);
+      backdrop-filter: blur(16px);
     }
     .phone {
       width: min(100%, 430px);
-      height: min(100dvh - 34px, 880px);
+      height: min(760px, calc(100dvh - 40px));
       min-height: 620px;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 42px;
-      background: #f5f1e8;
-      color: #161616;
+      border: 1px solid #d8d8d5;
+      border-radius: 28px;
+      background: #ffffff;
+      color: #111111;
       overflow: hidden;
-      box-shadow: 0 24px 80px rgba(0,0,0,0.38);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.08);
       display: flex;
       flex-direction: column;
+      position: relative;
+      justify-self: center;
     }
     .top {
-      padding: 18px 20px 12px;
-      background: #ece6d9;
-      border-bottom: 1px solid rgba(0,0,0,0.08);
+      padding: 18px 18px 14px;
+      background: #ffffff;
+      border-bottom: 1px solid #ececea;
     }
     .statusbar {
-      height: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 12px;
-      font-weight: 700;
-      color: #252525;
-      margin-bottom: 16px;
+      display: none;
     }
     .island {
-      width: 76px;
-      height: 20px;
-      border-radius: 999px;
-      background: #101010;
-      margin: 0 auto;
+      display: none;
     }
     .head {
       display: flex;
-      align-items: end;
+      align-items: center;
       justify-content: space-between;
       gap: 14px;
     }
-    h1 {
-      font-size: 24px;
-      line-height: 1.05;
-      margin: 0 0 4px;
+    .app-title {
+      font-size: 22px;
+      line-height: 1.1;
+      margin: 0 0 6px;
       letter-spacing: 0;
+      font-weight: 650;
     }
     .sub {
       margin: 0;
-      color: #69645a;
+      color: #707070;
       font-size: 13px;
     }
     .pill {
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      min-height: 32px;
+      min-height: 30px;
       padding: 0 12px;
       border-radius: 999px;
-      background: #fffaf0;
-      color: #464137;
+      background: #f5f5f3;
+      color: #2a2a2a;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
       white-space: nowrap;
-      border: 1px solid rgba(0,0,0,0.08);
+      border: 1px solid #e1e1de;
     }
     .led {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #b65648;
+      background: #9b9b96;
     }
-    .led.on { background: #2f8b67; }
+    .led.on { background: #111111; }
     .content {
       flex: 1;
       min-height: 0;
       overflow-y: auto;
-      padding: 18px 16px 12px;
+      padding: 18px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      background: #f8f4ec;
+      gap: 10px;
+      background: #fafafa;
     }
     .empty {
       margin: auto 20px;
       text-align: center;
-      color: #8a8377;
+      color: #858585;
       font-size: 15px;
       line-height: 1.35;
     }
     .bubble {
       max-width: 84%;
-      padding: 12px 14px;
-      border-radius: 18px;
+      padding: 11px 13px;
+      border-radius: 16px;
       line-height: 1.35;
       font-size: 16px;
       word-break: break-word;
-      box-shadow: 0 1px 0 rgba(0,0,0,0.04);
     }
     .caller {
       align-self: flex-start;
       background: #ffffff;
       color: #171717;
-      border-bottom-left-radius: 5px;
+      border: 1px solid #e7e7e4;
+      border-bottom-left-radius: 6px;
     }
     .caller.interim {
-      color: #857d70;
-      background: #fffaf2;
-      border: 1px dashed rgba(0,0,0,0.13);
+      color: #777777;
+      background: #f7f7f5;
+      border: 1px solid #e3e3df;
     }
     .operator {
       align-self: flex-end;
-      background: #234f45;
-      color: #f7fff9;
-      border-bottom-right-radius: 5px;
+      background: #111111;
+      color: #ffffff;
+      border-bottom-right-radius: 6px;
+    }
+    .ai {
+      align-self: flex-end;
+      background: #eef7f1;
+      color: #1f6f3d;
+      border: 1px solid #cfe8d7;
+      border-bottom-right-radius: 6px;
     }
     .composer {
       padding: 12px 14px 16px;
-      background: #ece6d9;
-      border-top: 1px solid rgba(0,0,0,0.08);
+      background: #ffffff;
+      border-top: 1px solid #ececea;
       display: grid;
-      grid-template-columns: 1fr 48px;
-      gap: 10px;
+      grid-template-columns: 1fr 44px 44px;
+      gap: 8px;
       align-items: end;
     }
     textarea {
-      min-height: 48px;
+      min-height: 44px;
       max-height: 130px;
       resize: none;
-      border: 1px solid rgba(0,0,0,0.12);
-      border-radius: 18px;
-      padding: 13px 14px;
+      border: 1px solid #d9d9d5;
+      border-radius: 12px;
+      padding: 11px 12px;
       outline: none;
-      background: #fffaf2;
-      color: #151515;
+      background: #ffffff;
+      color: #111111;
       line-height: 1.25;
     }
-    textarea:focus { border-color: #557f73; box-shadow: 0 0 0 3px rgba(85,127,115,0.16); }
-    textarea::placeholder { color: #9a9286; }
+    textarea:focus { border-color: #111111; box-shadow: 0 0 0 3px rgba(17,17,17,0.08); }
+    textarea::placeholder { color: #999999; }
     .send {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       border: 0;
-      border-radius: 50%;
+      border-radius: 12px;
       color: #fff;
-      background: #234f45;
+      background: #111111;
       display: grid;
       place-items: center;
       cursor: pointer;
     }
     .send:disabled {
-      background: #bcb5aa;
+      background: #d6d6d2;
       cursor: default;
     }
-    .send svg { width: 21px; height: 21px; }
+    .send svg { width: 20px; height: 20px; }
+    .ai-toggle {
+      width: 44px;
+      height: 44px;
+      border: 1px solid #d9d9d5;
+      border-radius: 12px;
+      color: #555555;
+      background: #ffffff;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .ai-toggle.on {
+      background: #1f6f3d;
+      color: #ffffff;
+      border-color: #1f6f3d;
+    }
     .debug {
-      padding: 8px 16px 0;
-      background: #ece6d9;
-      color: #746d62;
+      padding: 7px 16px 0;
+      background: #ffffff;
+      color: #8c8c88;
       font-size: 11px;
       line-height: 1.35;
       white-space: nowrap;
@@ -192,29 +291,30 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-top: 10px;
+      margin-top: 14px;
     }
     .voice-select {
       flex: 1;
-      background: #fffaf2;
-      color: #161616;
-      border: 1px solid rgba(0,0,0,0.12);
+      height: 38px;
+      background: #f7f7f5;
+      color: #111111;
+      border: 1px solid #dededb;
       border-radius: 10px;
-      padding: 6px 10px;
+      padding: 0 10px;
       font-size: 13px;
-      font-family: inherit;
       outline: none;
       cursor: pointer;
       min-width: 0;
     }
     .clone-btn {
-      padding: 6px 12px;
-      background: #234f45;
-      color: #fff;
-      border: 0;
+      height: 38px;
+      padding: 0 12px;
+      background: #ffffff;
+      color: #111111;
+      border: 1px solid #d9d9d5;
       border-radius: 10px;
       font-size: 13px;
-      font-family: inherit;
+      font-weight: 600;
       cursor: pointer;
       white-space: nowrap;
       flex-shrink: 0;
@@ -223,16 +323,19 @@
       margin-top: 8px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 8px;
+      padding: 10px;
+      background: #f7f7f5;
+      border: 1px solid #e3e3df;
+      border-radius: 12px;
     }
     .clone-name {
-      background: #fffaf2;
-      color: #161616;
-      border: 1px solid rgba(0,0,0,0.12);
+      background: #ffffff;
+      color: #111111;
+      border: 1px solid #d9d9d5;
       border-radius: 10px;
-      padding: 6px 10px;
+      padding: 8px 10px;
       font-size: 13px;
-      font-family: inherit;
       outline: none;
       width: 100%;
     }
@@ -268,19 +371,24 @@
       color: #7de8a8;
       border-bottom-right-radius: 5px;
     }
-    .ai-toggle {
-      width: 48px;
-      height: 48px;
-      border: 0;
-      border-radius: 50%;
-      color: #fff;
-      background: #bcb5aa;
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 700;
-      transition: background 0.2s;
+    .clone-status { font-size: 12px; color: #666666; }
+    .voice-count { font-size: 11px; color: #8b8b86; white-space: nowrap; flex-shrink: 0; }
+    @media (max-width: 900px) {
+      .ear-collage {
+        inset: 132px 0 0;
+        grid-template-columns: repeat(5, minmax(110px, 1fr));
+        grid-auto-rows: 118px;
+      }
+      .page {
+        padding: 18px 16px 48px;
+      }
+      .hero {
+        padding: 44px 0 24px;
+      }
+      .app-section {
+        padding: 10px;
+        border-radius: 34px;
+      }
     }
     .ai-toggle.on { background: #2f8b67; }
     .composer { grid-template-columns: 1fr 48px 48px; }
@@ -332,14 +440,36 @@
       transition: background 0.15s;
     }
     .login-submit:hover { background: #1c4039; }
-    @media (max-width: 520px) {
+    @media (max-width: 560px) {
       .shell { padding: 0; }
+      .page {
+        padding: 14px 0 0;
+      }
+      .ear-collage {
+        inset: 122px 0 0;
+        grid-template-columns: repeat(4, minmax(88px, 1fr));
+        grid-auto-rows: 96px;
+      }
+      .hero {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+      .app-section {
+        margin-top: 24px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+      }
       .phone {
         width: 100%;
         height: 100dvh;
         min-height: 100dvh;
         border: 0;
         border-radius: 0;
+        box-shadow: none;
+        background: rgba(255,255,255,0.94);
       }
     }
   </style>
@@ -352,6 +482,32 @@
   <script>
     const { useEffect, useMemo, useRef, useState } = React;
     const h = React.createElement;
+    const earImages = [
+      "dylann-hendricks-CoatboSrSVU-unsplash.jpg",
+      "robin-gislain-gessy-1rIUwOfQ3VU-unsplash.jpg",
+      "leohoho-qNuJCnnFnmY-unsplash.jpg",
+      "mark-paton-LqsxBGpkczI-unsplash.jpg",
+      "sam-badmaeva-ZFM4p744L-w-unsplash.jpg",
+      "dylann-hendricks-oxaBYAbpWgI-unsplash.jpg",
+      "gabrielle-henderson-tKNB4iW3GT8-unsplash.jpg",
+      "andriyko-podilnyk-dWSl8REfpoQ-unsplash.jpg",
+      "sven-mieke-EUMLCSMmYOo-unsplash.jpg",
+      "nihar-reddy-jangam-Lyjw30DqQtQ-unsplash.jpg",
+      "mark-paton-KxDNim_Ts6Y-unsplash.jpg",
+      "mark-paton-Jp7zQoMgxM4-unsplash.jpg",
+      "kateryna-hliznitsova-P6NiFTyI294-unsplash.jpg",
+      "kenny-rkaG7UdEb6U-unsplash.jpg",
+      "jessica-flavia-6DnORP9gyIM-unsplash.jpg",
+      "kateryna-hliznitsova-oA1LPxPyQqI-unsplash.jpg",
+      "dylann-hendricks-tCPbxjzQDmE-unsplash.jpg",
+      "ana-curcan-S0ZOVubYQfg-unsplash.jpg",
+      "mark-paton-iItakOskHs8-unsplash.jpg",
+      "aurora-k-O-FoUsmqzbY-unsplash.jpg",
+      "tom-spross-b2qnqNcUY0U-unsplash.jpg",
+      "dominik-kempf-Lbq-7zBeVqY-unsplash.jpg",
+      "valeria-reverdo-LXtICS5lxis-unsplash.jpg"
+    ];
+
     function App() {
       const [connected, setConnected] = useState(false);
       const [callerConnected, setCallerConnected] = useState(false);
@@ -365,7 +521,8 @@
       const [showClone, setShowClone] = useState(false);
       const [cloneStatus, setCloneStatus] = useState("");
       const [aiMode, setAiMode] = useState(false);
-      const [scamAlert, setScamAlert] = useState(null); // null | { score, label }
+      const [scamAlert, setScamAlert] = useState(null);
+      const [aiTyping, setAiTyping] = useState(false);
       const [showLogin, setShowLogin] = useState(() => !localStorage.getItem("userProfile"));
       const [loginErr, setLoginErr] = useState("");
       const loginNameRef = useRef(null);
@@ -376,6 +533,12 @@
       const scrollerRef = useRef(null);
       const cloneFileRef = useRef(null);
       const cloneNameRef = useRef(null);
+      const wordsSentRef = useRef(0);
+      const typingStartedRef = useRef(false);
+      const earlySpeakTimerRef = useRef(null);
+      const phraseTimerRef = useRef(null);
+      const draftRef = useRef("");
+      const aiModeRef = useRef(false);
 
       useEffect(() => {
         const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -406,6 +569,11 @@
             if (msg.final) {
               setItems((rows) => [...rows, msg.entry || makeClientEntry("caller", msg.text)]);
               setInterim("");
+              if (aiModeRef.current) {
+                setAiTyping(true);
+                setStatus("AI thinking");
+                setLastEvent("AI is typing");
+              }
             } else {
               setInterim(msg.text || "");
             }
@@ -417,10 +585,15 @@
             setScamAlert(null);
           }
           if (msg.type === "ai_reply") {
+            setAiTyping(false);
             setItems((rows) => [...rows, makeClientEntry("ai", msg.text)]);
+            setStatus("speaking");
+            setLastEvent(`AI reply: ${msg.text}`);
           }
           if (msg.type === "ai_mode") {
             setAiMode(msg.enabled);
+            aiModeRef.current = msg.enabled;
+            if (!msg.enabled) setAiTyping(false);
           }
           if (msg.type === "status") {
             if (msg.text === "caller_connected") setCallerConnected(true);
@@ -429,7 +602,11 @@
           }
         };
 
-        return () => ws.close();
+        return () => {
+          window.clearTimeout(earlySpeakTimerRef.current);
+          window.clearTimeout(phraseTimerRef.current);
+          ws.close();
+        };
       }, []);
 
       useEffect(() => {
@@ -454,7 +631,7 @@
 
       useEffect(() => {
         scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
-      }, [items, interim]);
+      }, [items, interim, aiTyping]);
 
       const statusLabel = useMemo(() => {
         if (!connected) return "offline";
@@ -492,19 +669,62 @@
         }
       }
 
+      function onTextInput(e) {
+        const text = e.target.value;
+        draftRef.current = text;
+        setDraft(text);
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        window.clearTimeout(phraseTimerRef.current);
+
+        if (!text.trim()) {
+          typingStartedRef.current = false;
+          wordsSentRef.current = 0;
+          return;
+        }
+
+        if (!typingStartedRef.current) {
+          typingStartedRef.current = true;
+          ws.send(JSON.stringify({ type: "tts_warmup" }));
+        }
+
+        // Flush immediately on sentence/clause boundary (punctuation + space)
+        if (/[.!?,;]\s$/.test(text)) {
+          flushPhrase(text);
+          return;
+        }
+
+        // Debounce: flush after 400 ms pause at a word boundary
+        if (/\s$/.test(text)) {
+          phraseTimerRef.current = window.setTimeout(() => flushPhrase(draftRef.current), 400);
+        }
+      }
+
+      function flushPhrase(currentText) {
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        const allWords = (currentText || "").trim().split(/\s+/).filter(Boolean);
+        const pending = allWords.slice(wordsSentRef.current);
+        if (!pending.length) return;
+        const phrase = pending.join(" ");
+        wordsSentRef.current = allWords.length;
+        ws.send(JSON.stringify({ type: "stream_phrase", text: phrase }));
+        setLastEvent(`tts phrase: ${phrase}`);
+      }
+
       function submit() {
+        window.clearTimeout(phraseTimerRef.current);
         const text = draft.trim();
         const ws = wsRef.current;
         if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
-        const words = text.split(/\s+/).filter(Boolean);
-        for (const word of words) {
-          ws.send(JSON.stringify({ type: "stream_word", word }));
-        }
-        ws.send(JSON.stringify({ type: "stream_done" }));
+        flushPhrase(text);
         setItems((rows) => [...rows, makeClientEntry("operator", text)]);
         setStatus("speaking");
-        setLastEvent(`tts sent: ${text}`);
+        setLastEvent(`sent: ${text}`);
         setDraft("");
+        draftRef.current = "";
+        typingStartedRef.current = false;
+        wordsSentRef.current = 0;
       }
 
       function submitLogin(e) {
@@ -524,8 +744,9 @@
 
       function toggleAi() {
         const ws = wsRef.current;
-        if (ws?.readyState === WebSocket.OPEN)
+        if (ws?.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "toggle_ai" }));
+        }
       }
 
       function warmupTts() {
@@ -542,7 +763,82 @@
         }
       }
 
-      return h(React.Fragment, null,
+      const phoneView = h("section", { className: "phone", "aria-label": "Your iPhone UI" },
+        h("div", { className: "top" },
+          h("div", { className: "statusbar" },
+            h("span", null, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
+            h("div", { className: "island", "aria-hidden": "true" }),
+            h("span", null, "5G")
+          ),
+          h("div", { className: "head" },
+            h("div", null,
+              h("h1", null, "Your iPhone UI"),
+              h("p", { className: "sub" }, callerConnected ? "Live Gradium transcript" : "Share /call with the caller")
+            ),
+            h("div", { className: "pill" },
+              h("span", { className: `led ${callerConnected ? "on" : ""}` }),
+              statusLabel
+            )
+          ),
+          h("div", { className: "voice-row" },
+            h("select", {
+              className: "voice-select",
+              value: voiceId || "",
+              onChange: (e) => changeVoice(e.target.value)
+            },
+              voices.length === 0
+                ? h("option", { key: "loading", value: "" }, "Loading voices…")
+                : voices.map(v =>
+                    h("option", { key: v.uid, value: v.uid },
+                      v.is_catalog ? v.name : `★ ${v.name}`)
+                  )
+            ),
+            voices.length > 0 && h("span", { className: "voice-count" }, `${voices.length} voices`),
+            h("button", { className: "clone-btn", onClick: () => setShowClone(s => !s) }, "Clone")
+          ),
+          showClone && h("div", { className: "clone-panel" },
+            h("input", { type: "file", accept: "audio/*", ref: cloneFileRef }),
+            h("input", { type: "text", className: "clone-name", placeholder: "Voice name", defaultValue: "My Voice", ref: cloneNameRef }),
+            h("button", { className: "clone-btn", onClick: uploadVoice }, "Upload"),
+            cloneStatus && h("span", { className: "clone-status" }, cloneStatus)
+          )
+        ),
+        h("div", { className: "content", ref: scrollerRef },
+          items.length === 0 && !interim
+            ? h("p", { className: "empty" }, "The live transcript will appear here.")
+            : null,
+          items.map((item) =>
+            h("div", { key: item.id, className: `bubble ${bubbleClass(item.speaker)}` }, item.text)
+          ),
+          aiTyping ? h("div", { className: "bubble ai interim" }, "AI is typing...") : null,
+          interim ? h("div", { className: "bubble caller interim" }, interim) : null
+        ),
+        h("div", { className: "debug" }, `Relay: ${lastEvent}`),
+        h("div", { className: "composer" },
+          h("textarea", {
+            value: draft,
+            placeholder: "Type reply",
+            rows: 1,
+            onInput: onTextInput,
+            onKeyDown,
+            onFocus: warmupTts
+          }),
+          h("button", {
+            className: `ai-toggle${aiMode ? " on" : ""}`,
+            onClick: toggleAi,
+            title: aiMode ? "AI mode on. Tap to disable." : "Enable AI auto-reply.",
+            "aria-label": aiMode ? "Disable AI auto reply" : "Enable AI auto reply"
+          }, "AI"),
+          h("button", { className: "send", onClick: submit, disabled: !draft.trim(), "aria-label": "Send reply" },
+            h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" },
+              h("path", { d: "M12 19V5" }),
+              h("path", { d: "m5 12 7-7 7 7" })
+            )
+          )
+        )
+      );
+
+      return h("main", { className: "shell" },
         showLogin && h("div", { className: "login-overlay" },
           h("div", { className: "login-card" },
             h("h2", null, "Welcome"),
@@ -571,7 +867,6 @@
             )
           )
         ),
-        h("main", { className: "shell" },
         h("section", { className: "phone", "aria-label": "Your iPhone UI" },
           h("div", { className: "top" },
             h("div", { className: "statusbar" },
@@ -628,6 +923,7 @@
               const cls = item.speaker === "operator" ? "operator" : item.speaker === "ai" ? "ai" : "caller";
               return h("div", { key: item.id, className: `bubble ${cls}` }, item.text);
             }),
+            aiTyping ? h("div", { className: "bubble ai interim" }, "AI is typing...") : null,
             interim ? h("div", { className: "bubble caller interim" }, interim) : null
           ),
           h("div", { className: "debug" }, `Relay: ${lastEvent}`),
@@ -636,7 +932,7 @@
               value: draft,
               placeholder: "Type reply",
               rows: 1,
-              onInput: (event) => setDraft(event.target.value),
+              onInput: onTextInput,
               onKeyDown,
               onFocus: warmupTts
             }),
@@ -648,7 +944,6 @@
               )
             )
           )
-        )
         )
       );
     }
@@ -662,10 +957,18 @@
       };
     }
 
+    function bubbleClass(speaker) {
+      if (speaker === "operator") return "operator";
+      if (speaker === "ai") return "ai";
+      return "caller";
+    }
+
     function labelStatus(value) {
       const labels = {
         caller_connected: "on call",
         caller_disconnected: "waiting",
+        audio_streaming: "hearing",
+        transcription_ready: "listening",
         speaking: "speaking",
         reply_played: "on call",
         relay_pending: "relay pending"

@@ -117,6 +117,7 @@
 
   <script>
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const ENGLISH_LOCALE = "en-US";
     const PROTOCOL = "relay.v1";
     const conversation = document.getElementById("conversation");
     const statusEl = document.getElementById("status");
@@ -169,7 +170,7 @@
       recognition = new SpeechRecognition();
       recognition.continuous = !isIOS();
       recognition.interimResults = true;
-      recognition.lang = navigator.language || "en-US";
+      recognition.lang = ENGLISH_LOCALE;
       recognition.maxAlternatives = 1;
 
       recognition.onaudiostart = () => setStatus("mic on");
@@ -236,6 +237,7 @@
       setStatus("playing reply");
 
       const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = ENGLISH_LOCALE;
       utterance.onend = () => {
         setStatus(active ? "listening" : "ended");
         if (ws?.readyState === WebSocket.OPEN) {

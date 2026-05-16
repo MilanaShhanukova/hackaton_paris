@@ -20,6 +20,7 @@ const wss = new WebSocketServer({ noServer: true });
 const sessions = new Map();
 
 app.use("/static", express.static(path.join(__dirname, "static")));
+app.use("/ears", express.static(path.join(__dirname, "ears")));
 
 app.get("/", (_req, res) => res.redirect("/iphone"));
 app.get("/iphone", (_req, res) => {

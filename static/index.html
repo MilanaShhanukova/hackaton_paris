@@ -344,7 +344,10 @@
       const profile = JSON.parse(localStorage.getItem("userProfile") || "{}");
       if (Object.keys(profile).length) ws.send(JSON.stringify({ type: "set_profile", profile }));
     };
-    ws.onclose = () => setStatus("disconnected", false);
+    ws.onclose = () => {
+      setStatus("disconnected", false);
+      document.getElementById("scam-banner").classList.remove("visible");
+    };
 
     ws.onmessage = ({ data }) => {
       const msg = JSON.parse(data);

@@ -148,6 +148,8 @@ async def caller_stream(ws: WebSocket):
     session.audio_queue = asyncio.Queue()
     session.transcript = ""
     session.current_words = []
+    session.scam_alerted = False
+    session.conversation_history.clear()
     session.audio_started = False
     if session.silence_task:
         session.silence_task.cancel()
@@ -171,6 +173,8 @@ async def caller_stream(ws: WebSocket):
         await stt_task
         session.caller_ws = None
         session.audio_queue = None
+        session.scam_alerted = False
+        await _ui_send({"type": "scam_clear"})
         await _ui_send({"type": "status", "text": "caller_disconnected"})
 
 

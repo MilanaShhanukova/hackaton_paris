@@ -545,6 +545,7 @@
           setCallerConnected(false);
           setStatus("offline");
           setLastEvent("websocket closed");
+          setScamAlert(null);
         };
         ws.onerror = () => {
           setStatus("socket error");
@@ -725,7 +726,11 @@
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
           setLoginErr("A valid email address is required."); return;
         }
-        localStorage.setItem("userProfile", JSON.stringify({ name, email, age, location: loc }));
+        const profile = { name, email, age, location: loc };
+        localStorage.setItem("userProfile", JSON.stringify(profile));
+        const ws = wsRef.current;
+        if (ws?.readyState === WebSocket.OPEN)
+          ws.send(JSON.stringify({ type: "set_profile", profile }));
         setShowLogin(false);
         setLoginErr("");
       }

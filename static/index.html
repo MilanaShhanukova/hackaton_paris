@@ -101,6 +101,39 @@
     }
     button:hover { background: #2a2a2a; }
     .hint { font-size: 11px; color: #333; text-align: right; }
+
+    /* ── Voice panel ── */
+    #voice-panel {
+      display: flex; align-items: center; gap: 8px;
+      background: #161616; border: 1px solid #222; border-radius: 8px;
+      padding: 8px 12px; font-size: 12px;
+    }
+    #voice-panel label { color: #555; white-space: nowrap; }
+    #voice-select {
+      flex: 1; background: #1a1a1a; color: #ccc;
+      border: 1px solid #2a2a2a; border-radius: 6px;
+      padding: 4px 8px; font-size: 12px; font-family: inherit;
+      outline: none; cursor: pointer;
+    }
+    #clone-toggle {
+      padding: 4px 10px; font-size: 11px; border-radius: 6px;
+      white-space: nowrap;
+    }
+    #clone-panel {
+      display: none;
+      background: #161616; border: 1px solid #222; border-radius: 8px;
+      padding: 10px 12px; font-size: 12px;
+      gap: 8px; flex-direction: column;
+    }
+    #clone-panel.open { display: flex; }
+    .clone-row { display: flex; gap: 8px; align-items: center; }
+    #voice-name-input {
+      flex: 1; background: #1a1a1a; color: #ccc;
+      border: 1px solid #2a2a2a; border-radius: 6px;
+      padding: 5px 8px; font-size: 12px; font-family: inherit; outline: none;
+    }
+    #voice-file { font-size: 11px; color: #555; flex: 1; }
+    #clone-status { font-size: 11px; color: #555; }
   </style>
 </head>
 <body>
@@ -110,6 +143,21 @@
     <h1>Call Relay</h1>
     <span id="status-text">waiting for caller</span>
   </header>
+
+  <div id="voice-panel">
+    <label>Voice:</label>
+    <select id="voice-select"><option value="">Loading…</option></select>
+    <button id="clone-toggle" onclick="toggleClone()">+ Clone my voice</button>
+  </div>
+
+  <div id="clone-panel">
+    <div class="clone-row">
+      <input type="file" id="voice-file" accept="audio/*">
+      <input type="text" id="voice-name-input" placeholder="Voice name" value="My Voice">
+      <button onclick="uploadVoice()">Upload</button>
+    </div>
+    <span id="clone-status"></span>
+  </div>
 
   <div id="call-link">
     <span id="link-text"></span>
@@ -133,38 +181,94 @@
     const replyEl = document.getElementById("reply");
     const linkEl = document.getElementById("link-text");
 
-    const callerUrl = `${location.protocol}//${location.host}/call`;
-    linkEl.textContent = callerUrl;
+    const callerUrl = `${location.protocol}//${location.host}/type`;
+    linkEl.textContent = "Share with the other person: " + callerUrl;
     function copyLink() { navigator.clipboard.writeText(callerUrl); }
+
+    // ── Voice management ──────────────────────────────────────────────────
+    const voiceSelect = document.getElementById("voice-select");
+
+    async function loadVoices() {
+      try {
+        const [voicesRes, currentRes] = await Promise.all([
+          fetch("/voices"), fetch("/voice-id"),
+        ]);
+        if (!voicesRes.ok) throw new Error(`/voices returned ${voicesRes.status}`);
+        const voices = await voicesRes.json();
+        const { voice_id: currentId } = await currentRes.json();
+
+        voiceSelect.innerHTML = "";
+
+        // Custom cloned voices first, then catalog sorted by name
+        const sorted = [
+          ...voices.filter(v => !v.is_catalog),
+          ...voices.filter(v => v.is_catalog).sort((a, b) => a.name.localeCompare(b.name)),
+        ].filter(v => v.name);
+
+        sorted.forEach(v => {
+          const opt = document.createElement("option");
+          opt.value = v.uid;
+          opt.textContent = v.is_catalog ? v.name : `★ ${v.name}`;
+          if (v.uid === currentId) opt.selected = true;
+          voiceSelect.appendChild(opt);
+        });
+
+        if (!voiceSelect.options.length)
+          voiceSelect.innerHTML = '<option value="">No voices found</option>';
+      } catch (err) {
+        voiceSelect.innerHTML = `<option value="">Error loading voices</option>`;
+        console.error("loadVoices failed:", err);
+      }
+    }
+
+    voiceSelect.addEventListener("change", () => {
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: "set_voice", voice_id: voiceSelect.value }));
+    });
+
+    function toggleClone() {
+      document.getElementById("clone-panel").classList.toggle("open");
+    }
+
+    async function uploadVoice() {
+      const file = document.getElementById("voice-file").files[0];
+      if (!file) return;
+      const name = document.getElementById("voice-name-input").value.trim() || file.name;
+      const status = document.getElementById("clone-status");
+      status.textContent = "Uploading…";
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("name", name);
+        const res = await fetch("/clone-voice", { method: "POST", body: form });
+        if (!res.ok) throw new Error(await res.text());
+        const voice = await res.json();
+        status.textContent = `✓ Cloned "${voice.name}"`;
+        await loadVoices();
+        voiceSelect.value = voice.uid;
+        if (ws.readyState === WebSocket.OPEN)
+          ws.send(JSON.stringify({ type: "set_voice", voice_id: voice.uid }));
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+      }
+    }
+
+    loadVoices();
 
     // The live interim bubble (replaced until finalized)
     let interimBubble = null;
 
-    function addCallerBubble(text, interim) {
-      if (interim) {
-        // reuse or create the interim bubble
-        if (!interimBubble) {
-          interimBubble = document.createElement("div");
-          interimBubble.className = "bubble caller interim";
-          // remove empty hint on first message
-          conv.querySelector(".empty-hint")?.remove();
-          conv.appendChild(interimBubble);
-        }
-        interimBubble.textContent = text;
-      } else {
-        // finalize: turn the interim bubble into a permanent one
-        if (interimBubble) {
-          interimBubble.textContent = text;
-          interimBubble.className = "bubble caller";
-          interimBubble = null;
-        } else {
-          // final came without interim (short utterance)
-          conv.querySelector(".empty-hint")?.remove();
-          const b = document.createElement("div");
-          b.className = "bubble caller";
-          b.textContent = text;
-          conv.appendChild(b);
-        }
+    function addCallerBubble(msg) {
+      if (!interimBubble) {
+        conv.querySelector(".empty-hint")?.remove();
+        interimBubble = document.createElement("div");
+        interimBubble.className = "bubble caller interim";
+        conv.appendChild(interimBubble);
+      }
+      interimBubble.textContent = msg.text;  // server sends full growing sentence
+      if (msg.final) {
+        interimBubble.className = "bubble caller";
+        interimBubble = null;  // next sentence gets a fresh bubble
       }
       conv.scrollTop = conv.scrollHeight;
     }
@@ -178,7 +282,8 @@
       conv.scrollTop = conv.scrollHeight;
     }
 
-    const ws = new WebSocket(`ws://${location.host}/ui`);
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${proto}://${location.host}/ui`);
     ws.onopen = () => setStatus("ready", false);
     ws.onclose = () => setStatus("disconnected", false);
 
@@ -186,7 +291,7 @@
       const msg = JSON.parse(data);
 
       if (msg.type === "transcript") {
-        addCallerBubble(msg.text, !msg.final);
+        addCallerBubble(msg);
       }
 
       if (msg.type === "status") {
@@ -201,13 +306,43 @@
       dot.className = "dot" + (speaking ? " speaking" : active ? " connected" : "");
     }
 
+    // Track how many complete words (word + space) we've already sent to TTS
+    let wordsSent = 0;
+
+    replyEl.addEventListener("input", () => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      const text = replyEl.value;
+      // Match words that are followed by whitespace (i.e., completed words)
+      const completeWords = text.match(/\S+(?=\s)/g) || [];
+      while (wordsSent < completeWords.length) {
+        ws.send(JSON.stringify({ type: "stream_word", word: completeWords[wordsSent] }));
+        wordsSent++;
+      }
+    });
+
     function send() {
       const text = replyEl.value.trim();
       if (!text || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ type: "speak", text }));
+
+      // Send any final word that hasn't been streamed yet (no trailing space)
+      const allWords = text.split(/\s+/).filter(Boolean);
+      while (wordsSent < allWords.length) {
+        ws.send(JSON.stringify({ type: "stream_word", word: allWords[wordsSent] }));
+        wordsSent++;
+      }
+
+      // Signal TTS to flush and close
+      ws.send(JSON.stringify({ type: "stream_done" }));
+
       addYourBubble(text);
       replyEl.value = "";
+      wordsSent = 0;
     }
+
+    replyEl.addEventListener("focus", () => {
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: "tts_warmup" }));
+    });
 
     document.getElementById("send-btn").onclick = send;
     replyEl.addEventListener("keydown", e => {

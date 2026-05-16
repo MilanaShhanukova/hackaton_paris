@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Call Relay</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      background: #141614;
+      color: #f6f3ec;
+      display: flex;
+      flex-direction: column;
+      padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0; font-size: 22px; letter-spacing: 0; }
+    #status {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      padding: 0 12px;
+      color: #c9c3b5;
+      font-size: 13px;
+    }
+    #conversation {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 10px 0;
+    }
+    .bubble {
+      max-width: 84%;
+      padding: 12px 14px;
+      border-radius: 18px;
+      line-height: 1.35;
+      font-size: 17px;
+      word-break: break-word;
+    }
+    .you {
+      align-self: flex-end;
+      background: #2e5e50;
+      color: #f5fff8;
+      border-bottom-right-radius: 5px;
+    }
+    .you.interim { opacity: 0.58; }
+    .them {
+      align-self: flex-start;
+      background: #f3eadc;
+      color: #141414;
+      border-bottom-left-radius: 5px;
+    }
+    .empty {
+      margin: auto;
+      max-width: 280px;
+      text-align: center;
+      color: #8d8678;
+      line-height: 1.4;
+    }
+    .notice {
+      align-self: center;
+      max-width: 320px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      color: #c9c3b5;
+      font-size: 13px;
+      line-height: 1.35;
+      text-align: center;
+    }
+    footer {
+      display: flex;
+      justify-content: center;
+      padding-top: 16px;
+    }
+    #toggle {
+      min-width: 156px;
+      height: 54px;
+      border: 0;
+      border-radius: 999px;
+      background: #f0e6d7;
+      color: #151515;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    #toggle.active {
+      background: #b84e43;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Call Relay</h1>
+    <span id="status">ready</span>
+  </header>
+  <section id="conversation">
+    <p class="empty">Tap start and speak. Replies from the iPhone UI will play aloud.</p>
+  </section>
+  <footer>
+    <button id="toggle">Start call</button>
+  </footer>
+
+  <script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const PROTOCOL = "relay.v1";
+    const conversation = document.getElementById("conversation");
+    const statusEl = document.getElementById("status");
+    const toggle = document.getElementById("toggle");
+
+    let ws = null;
+    let recognition = null;
+    let active = false;
+    let stopping = false;
+    let interimBubble = null;
+    let pendingPackets = [];
+    let lastNotice = "";
+
+    toggle.addEventListener("click", () => active ? stopCall() : startCall());
+
+    function startCall() {
+      if (!SpeechRecognition) {
+        setStatus("speech unavailable");
+        showNotice("This browser does not expose speech recognition. Try Chrome or Safari, and use HTTPS when testing from another phone.");
+        return;
+      }
+
+      active = true;
+      stopping = false;
+      pendingPackets = [];
+      toggle.textContent = "End call";
+      toggle.classList.add("active");
+      setStatus("starting mic");
+      startRecognition();
+
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${proto}://${location.host}/ws?role=caller&session=default`);
+
+      ws.onopen = () => {
+        sendPacket({ type: "call.started" });
+        flushPendingPackets();
+      };
+
+      ws.onmessage = ({ data }) => {
+        const msg = JSON.parse(data);
+        if (msg.type === "tts.play") playReply(msg.text);
+      };
+
+      ws.onclose = () => stopCall(false);
+      ws.onerror = () => setStatus("connection error");
+    }
+
+    function startRecognition() {
+      if (!active || stopping) return;
+      recognition = new SpeechRecognition();
+      recognition.continuous = !isIOS();
+      recognition.interimResults = true;
+      recognition.lang = navigator.language || "en-US";
+      recognition.maxAlternatives = 1;
+
+      recognition.onaudiostart = () => setStatus("mic on");
+      recognition.onspeechstart = () => setStatus("hearing speech");
+      recognition.onspeechend = () => setStatus("processing");
+      recognition.onnomatch = () => {
+        setStatus("no match");
+        showNotice("I heard audio, but the browser did not return words. Try speaking a little closer to the mic.");
+      };
+
+      recognition.onresult = (event) => {
+        setStatus("transcribing");
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          const text = result[0].transcript.trim();
+          if (!text) continue;
+          sendTranscript(text, result.isFinal);
+          renderYou(text, result.isFinal);
+        }
+      };
+
+      recognition.onend = () => {
+        if (active && !stopping) {
+          setStatus("listening");
+          window.setTimeout(startRecognition, 250);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        const message = speechErrorMessage(event.error);
+        setStatus(message.short);
+        showNotice(message.long);
+      };
+
+      try {
+        recognition.start();
+        setStatus("listening");
+      } catch (error) {
+        setStatus("mic blocked");
+        showNotice(error.message || "The browser blocked speech recognition. Tap End call, then Start call again.");
+      }
+    }
+
+    function sendTranscript(text, final) {
+      sendPacket({ type: "transcript.delta", text, final });
+    }
+
+    function renderYou(text, final) {
+      conversation.querySelector(".empty")?.remove();
+      if (!interimBubble) {
+        interimBubble = bubble("you interim");
+      }
+      interimBubble.textContent = text;
+      if (final) {
+        interimBubble.className = "bubble you";
+        interimBubble = null;
+      }
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    function playReply(text) {
+      conversation.querySelector(".empty")?.remove();
+      bubble("them").textContent = text;
+      setStatus("playing reply");
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.onend = () => {
+        setStatus(active ? "listening" : "ended");
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ protocol: PROTOCOL, type: "tts.played" }));
+        }
+      };
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    function stopCall(sendEnded = true) {
+      active = false;
+      stopping = true;
+      toggle.textContent = "Start call";
+      toggle.classList.remove("active");
+      setStatus("ended");
+      recognition?.stop();
+      speechSynthesis.cancel();
+      if (sendEnded && ws?.readyState === WebSocket.OPEN) {
+        sendPacket({ type: "call.ended" });
+      }
+      ws?.close();
+      ws = null;
+    }
+
+    function bubble(className) {
+      const el = document.createElement("div");
+      el.className = `bubble ${className}`;
+      conversation.appendChild(el);
+      return el;
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function sendPacket(packet) {
+      const body = JSON.stringify({ protocol: PROTOCOL, ...packet });
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(body);
+        return;
+      }
+      pendingPackets.push(body);
+    }
+
+    function flushPendingPackets() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      for (const packet of pendingPackets) ws.send(packet);
+      pendingPackets = [];
+    }
+
+    function showNotice(text) {
+      if (!text || text === lastNotice) return;
+      lastNotice = text;
+      conversation.querySelector(".empty")?.remove();
+      const el = document.createElement("div");
+      el.className = "notice";
+      el.textContent = text;
+      conversation.appendChild(el);
+      conversation.scrollTop = conversation.scrollHeight;
+    }
+
+    function isIOS() {
+      return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    function speechErrorMessage(error) {
+      const messages = {
+        "not-allowed": {
+          short: "mic denied",
+          long: "Microphone or speech recognition permission was denied. Allow mic access in the browser, then start the call again."
+        },
+        "service-not-allowed": {
+          short: "speech blocked",
+          long: "The browser blocked the speech service. Use HTTPS or open this page in a browser that supports speech recognition."
+        },
+        "network": {
+          short: "speech network error",
+          long: "The browser speech service could not connect. Try again on a stable network or use a different browser."
+        },
+        "no-speech": {
+          short: "no speech",
+          long: "No speech was detected. Check the selected microphone and try speaking again."
+        },
+        "audio-capture": {
+          short: "no mic",
+          long: "No microphone was found or the browser could not capture audio."
+        }
+      };
+      return messages[error] || {
+        short: error || "speech error",
+        long: `Speech recognition stopped: ${error || "unknown error"}. Try ending and starting the call again.`
+      };
+    }
+  </script>
+</body>
+</html>

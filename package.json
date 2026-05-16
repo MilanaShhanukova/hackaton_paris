@@ -1,0 +1,21 @@
+{
+  "name": "call-relay-iphone",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node node-server.js",
+    "start": "node node-server.js",
+    "cap:add:ios": "cap add ios",
+    "cap:open:ios": "cap open ios",
+    "cap:sync:ios": "cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/cli": "7.4.3",
+    "@capacitor/core": "7.4.3",
+    "@capacitor/ios": "7.4.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}

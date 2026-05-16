@@ -13,19 +13,59 @@
       height: 100dvh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 24px;
-      padding: 24px;
+      padding: 20px;
+      gap: 14px;
     }
-    h1 { font-size: 20px; font-weight: 500; color: #aaa; }
+
+    header { display: flex; align-items: center; gap: 12px; }
+    h1 { font-size: 16px; font-weight: 600; color: #ccc; }
+    #status-text { font-size: 12px; color: #555; margin-left: auto; }
+
+    /* conversation */
+    #conversation {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 4px 2px;
+    }
+    .bubble {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 18px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    /* your speech — right, green-tinted */
+    .bubble.you {
+      align-self: flex-end;
+      background: #1a3a1a;
+      color: #90d090;
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.you.interim { color: #4a7a4a; background: #141f14; }
+    /* their reply — left, blue-tinted */
+    .bubble.them {
+      align-self: flex-start;
+      background: #1a2a3a;
+      color: #9dc8f0;
+      border-bottom-left-radius: 4px;
+    }
+    .bubble.them.interim { color: #4a6a8a; background: #141820; }
+
+    .empty-hint {
+      color: #333; font-style: italic; font-size: 15px;
+      text-align: center; margin-top: 40px;
+    }
+
+    /* mic button */
+    footer { display: flex; align-items: center; justify-content: center; gap: 20px; }
     #btn {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: none;
-      font-size: 40px;
-      cursor: pointer;
+      width: 80px; height: 80px;
+      border-radius: 50%; border: none;
+      font-size: 32px; cursor: pointer;
       background: #1e1e1e;
       transition: background 0.2s, transform 0.1s;
     }
@@ -34,33 +74,45 @@
     #btn:active { transform: scale(0.95); }
     @keyframes pulse {
       0%, 100% { box-shadow: 0 0 0 0 #4caf5044; }
-      50%       { box-shadow: 0 0 0 16px #4caf5000; }
+      50%       { box-shadow: 0 0 0 14px #4caf5000; }
     }
-    #status { font-size: 14px; color: #555; min-height: 20px; }
-    #status.on  { color: #4caf50; }
-    #status.err { color: #f44336; }
+    .hint { font-size: 12px; color: #444; }
   </style>
 </head>
 <body>
-  <h1>Tap to talk</h1>
-  <button id="btn">🎙️</button>
-  <p id="status">Press to start</p>
+
+  <header>
+    <h1>Call</h1>
+    <span id="status-text">tap to start</span>
+  </header>
+
+  <div id="conversation">
+    <p class="empty-hint">Your speech appears here. Their replies appear on the left.</p>
+  </div>
+
+  <footer>
+    <p class="hint">speak</p>
+    <button id="btn">🎙️</button>
+    <p class="hint">they type</p>
+  </footer>
 
   <script>
     const SAMPLE_RATE = 16000;
     const btn = document.getElementById("btn");
-    const status = document.getElementById("status");
+    const statusText = document.getElementById("status-text");
+    const conv = document.getElementById("conversation");
 
     let context, ws, node, stream;
     let active = false;
+    let interimYou = null;   // live bubble for your own speech
+    let interimThem = null;  // live bubble for their reply (builds word by word)
 
-    btn.onclick = active ? hangUp : startCall;
+    btn.onclick = () => active ? hangUp() : startCall();
 
     async function startCall() {
       try {
-        setStatus("Connecting…", "");
+        setStatus("connecting…");
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-
         context = new AudioContext({ sampleRate: SAMPLE_RATE });
         await context.audioWorklet.addModule("/static/audio-processor.js");
 
@@ -71,66 +123,99 @@
         ws.onopen = () => {
           const source = context.createMediaStreamSource(stream);
           node = new AudioWorkletNode(context, "pcm-processor");
-
-          // mic → server
           node.port.onmessage = (e) => {
             if (ws.readyState === WebSocket.OPEN) ws.send(e.data);
           };
           source.connect(node);
-
           active = true;
           btn.textContent = "⏹️";
           btn.classList.add("active");
-          setStatus("On call", "on");
+          setStatus("on call");
+          conv.querySelector(".empty-hint")?.remove();
         };
 
-        // server → TTS playback
+        // TTS audio playback — binary frames
         let nextPlayTime = 0;
         ws.onmessage = (e) => {
-          if (!(e.data instanceof ArrayBuffer)) return;
-          const int16 = new Int16Array(e.data);
-          const float32 = new Float32Array(int16.length);
-          for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+          if (e.data instanceof ArrayBuffer) {
+            const int16 = new Int16Array(e.data);
+            const float32 = new Float32Array(int16.length);
+            for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+            const buf = context.createBuffer(1, float32.length, SAMPLE_RATE);
+            buf.copyToChannel(float32, 0);
+            const src = context.createBufferSource();
+            src.buffer = buf;
+            src.connect(context.destination);
+            const now = context.currentTime;
+            if (nextPlayTime < now) nextPlayTime = now + 0.05;
+            src.start(nextPlayTime);
+            nextPlayTime += buf.duration;
+            return;
+          }
 
-          const buf = context.createBuffer(1, float32.length, SAMPLE_RATE);
-          buf.copyToChannel(float32, 0);
+          // JSON text messages — conversation updates
+          const msg = JSON.parse(e.data);
 
-          const src = context.createBufferSource();
-          src.buffer = buf;
-          src.connect(context.destination);
+          if (msg.type === "transcript") {
+            if (!interimYou) {
+              conv.querySelector(".empty-hint")?.remove();
+              interimYou = makeBubble("you interim");
+            }
+            interimYou.textContent = msg.text;  // server sends full growing sentence
+            if (msg.final) {
+              interimYou.className = "bubble you";
+              interimYou = null;  // next sentence gets a fresh bubble
+            }
+            conv.scrollTop = conv.scrollHeight;
+          }
 
-          // schedule back-to-back so chunks play seamlessly
-          const now = context.currentTime;
-          if (nextPlayTime < now) nextPlayTime = now + 0.05;
-          src.start(nextPlayTime);
-          nextPlayTime += buf.duration;
+          if (msg.type === "reply") {
+            // the other person's typed reply, streamed word by word
+            if (!msg.final) {
+              if (!interimThem) {
+                interimThem = makeBubble("them interim");
+              }
+              interimThem.textContent = msg.text;
+            } else {
+              if (interimThem) {
+                interimThem.textContent = msg.text;
+                interimThem.className = "bubble them";
+                interimThem = null;
+              } else {
+                makeBubble("them").textContent = msg.text;
+              }
+            }
+            conv.scrollTop = conv.scrollHeight;
+          }
         };
 
         ws.onclose = () => hangUp();
-        ws.onerror = () => setStatus("Connection error", "err");
+        ws.onerror = () => setStatus("error");
 
       } catch (err) {
-        setStatus(err.message, "err");
+        setStatus(err.message);
       }
+    }
+
+    function makeBubble(cls) {
+      const b = document.createElement("div");
+      b.className = "bubble " + cls;
+      conv.appendChild(b);
+      return b;
     }
 
     function hangUp() {
       active = false;
       btn.textContent = "🎙️";
       btn.classList.remove("active");
-      setStatus("Call ended", "");
+      setStatus("call ended");
       node?.disconnect();
       stream?.getTracks().forEach(t => t.stop());
       ws?.close();
       context?.close();
     }
 
-    function setStatus(text, cls) {
-      status.textContent = text;
-      status.className = cls;
-    }
-
-    btn.onclick = () => active ? hangUp() : startCall();
+    function setStatus(text) { statusText.textContent = text; }
   </script>
 </body>
 </html>

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Your iPhone UI</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body, #root { height: 100%; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      background: #111315;
+      color: #f4f5f2;
+      overflow: hidden;
+    }
+    button, textarea { font: inherit; }
+    .shell {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at 20% 0%, rgba(88, 141, 132, 0.28), transparent 32%),
+        linear-gradient(145deg, #151719 0%, #0d0e10 100%);
+    }
+    .phone {
+      width: min(100%, 430px);
+      height: min(100dvh - 34px, 880px);
+      min-height: 620px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 42px;
+      background: #f5f1e8;
+      color: #161616;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.38);
+      display: flex;
+      flex-direction: column;
+    }
+    .top {
+      padding: 18px 20px 12px;
+      background: #ece6d9;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+    }
+    .statusbar {
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 700;
+      color: #252525;
+      margin-bottom: 16px;
+    }
+    .island {
+      width: 76px;
+      height: 20px;
+      border-radius: 999px;
+      background: #101010;
+      margin: 0 auto;
+    }
+    .head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    h1 {
+      font-size: 24px;
+      line-height: 1.05;
+      margin: 0 0 4px;
+      letter-spacing: 0;
+    }
+    .sub {
+      margin: 0;
+      color: #69645a;
+      font-size: 13px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: #fffaf0;
+      color: #464137;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #b65648;
+    }
+    .led.on { background: #2f8b67; }
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 18px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #f8f4ec;
+    }
+    .empty {
+      margin: auto 20px;
+      text-align: center;
+      color: #8a8377;
+      font-size: 15px;
+      line-height: 1.35;
+    }
+    .bubble {
+      max-width: 84%;
+      padding: 12px 14px;
+      border-radius: 18px;
+      line-height: 1.35;
+      font-size: 16px;
+      word-break: break-word;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+    }
+    .caller {
+      align-self: flex-start;
+      background: #ffffff;
+      color: #171717;
+      border-bottom-left-radius: 5px;
+    }
+    .caller.interim {
+      color: #857d70;
+      background: #fffaf2;
+      border: 1px dashed rgba(0,0,0,0.13);
+    }
+    .operator {
+      align-self: flex-end;
+      background: #234f45;
+      color: #f7fff9;
+      border-bottom-right-radius: 5px;
+    }
+    .composer {
+      padding: 12px 14px 16px;
+      background: #ece6d9;
+      border-top: 1px solid rgba(0,0,0,0.08);
+      display: grid;
+      grid-template-columns: 1fr 48px;
+      gap: 10px;
+      align-items: end;
+    }
+    textarea {
+      min-height: 48px;
+      max-height: 130px;
+      resize: none;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 18px;
+      padding: 13px 14px;
+      outline: none;
+      background: #fffaf2;
+      color: #151515;
+      line-height: 1.25;
+    }
+    textarea:focus { border-color: #557f73; box-shadow: 0 0 0 3px rgba(85,127,115,0.16); }
+    textarea::placeholder { color: #9a9286; }
+    .send {
+      width: 48px;
+      height: 48px;
+      border: 0;
+      border-radius: 50%;
+      color: #fff;
+      background: #234f45;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+    .send:disabled {
+      background: #bcb5aa;
+      cursor: default;
+    }
+    .send svg { width: 21px; height: 21px; }
+    .debug {
+      padding: 8px 16px 0;
+      background: #ece6d9;
+      color: #746d62;
+      font-size: 11px;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .voice-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .voice-select {
+      flex: 1;
+      background: #fffaf2;
+      color: #161616;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      cursor: pointer;
+      min-width: 0;
+    }
+    .clone-btn {
+      padding: 6px 12px;
+      background: #234f45;
+      color: #fff;
+      border: 0;
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .clone-panel {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .clone-name {
+      background: #fffaf2;
+      color: #161616;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      width: 100%;
+    }
+    .clone-status { font-size: 12px; color: #69645a; }
+    .voice-count { font-size: 11px; color: #9a9286; white-space: nowrap; flex-shrink: 0; }
+    @media (max-width: 520px) {
+      .shell { padding: 0; }
+      .phone {
+        width: 100%;
+        height: 100dvh;
+        min-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script>
+    const { useEffect, useMemo, useRef, useState } = React;
+    const h = React.createElement;
+    function App() {
+      const [connected, setConnected] = useState(false);
+      const [callerConnected, setCallerConnected] = useState(false);
+      const [items, setItems] = useState([]);
+      const [draft, setDraft] = useState("");
+      const [interim, setInterim] = useState("");
+      const [status, setStatus] = useState("connecting");
+      const [lastEvent, setLastEvent] = useState("booting");
+      const [voices, setVoices] = useState([]);
+      const [voiceId, setVoiceId] = useState("");
+      const [showClone, setShowClone] = useState(false);
+      const [cloneStatus, setCloneStatus] = useState("");
+      const wsRef = useRef(null);
+      const scrollerRef = useRef(null);
+      const cloneFileRef = useRef(null);
+      const cloneNameRef = useRef(null);
+
+      useEffect(() => {
+        const proto = location.protocol === "https:" ? "wss" : "ws";
+        const ws = new WebSocket(`${proto}://${location.host}/ui`);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          setConnected(true);
+          setStatus("ready");
+          setLastEvent("Gradium UI socket open");
+        };
+        ws.onclose = () => {
+          setConnected(false);
+          setCallerConnected(false);
+          setStatus("offline");
+          setLastEvent("websocket closed");
+        };
+        ws.onerror = () => {
+          setStatus("socket error");
+          setLastEvent("websocket error");
+        };
+        ws.onmessage = ({ data }) => {
+          const msg = JSON.parse(data);
+          setLastEvent(`${msg.type}${msg.text ? `: ${msg.text}` : ""}`);
+          if (msg.type === "transcript") {
+            if (msg.final) {
+              setItems((rows) => [...rows, msg.entry || makeClientEntry("caller", msg.text)]);
+              setInterim("");
+            } else {
+              setInterim(msg.text || "");
+            }
+          }
+          if (msg.type === "status") {
+            if (msg.text === "caller_connected") setCallerConnected(true);
+            if (msg.text === "caller_disconnected") setCallerConnected(false);
+            setStatus(labelStatus(msg.text));
+          }
+        };
+
+        return () => ws.close();
+      }, []);
+
+      useEffect(() => {
+        (async () => {
+          try {
+            const [vRes, cRes] = await Promise.all([fetch("/voices"), fetch("/voice-id")]);
+            if (!vRes.ok) throw new Error(`/voices ${vRes.status}`);
+            const list = await vRes.json();
+            const { voice_id: currentId } = await cRes.json();
+            const sorted = list
+              .filter(v => v.name)
+              .sort((a, b) => a.name.localeCompare(b.name));
+            setVoices(sorted);
+            setVoiceId(currentId);
+            setLastEvent(`voices loaded: ${sorted.length}`);
+          } catch (err) {
+            setLastEvent(`voices error: ${err.message}`);
+            console.error("loadVoices:", err);
+          }
+        })();
+      }, []);
+
+      useEffect(() => {
+        scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: "smooth" });
+      }, [items, interim]);
+
+      const statusLabel = useMemo(() => {
+        if (!connected) return "offline";
+        if (callerConnected) return status === "ready" ? "on call" : status;
+        return "waiting";
+      }, [connected, callerConnected, status]);
+
+      function changeVoice(uid) {
+        setVoiceId(uid);
+        const ws = wsRef.current;
+        if (ws?.readyState === WebSocket.OPEN)
+          ws.send(JSON.stringify({ type: "set_voice", voice_id: uid }));
+      }
+
+      async function uploadVoice() {
+        const file = cloneFileRef.current?.files[0];
+        if (!file) return;
+        const name = cloneNameRef.current?.value.trim() || file.name;
+        setCloneStatus("Uploading…");
+        try {
+          const form = new FormData();
+          form.append("file", file);
+          form.append("name", name);
+          const res = await fetch("/clone-voice", { method: "POST", body: form });
+          if (!res.ok) throw new Error(await res.text());
+          const voice = await res.json();
+          const vRes = await fetch("/voices");
+          const list = await vRes.json();
+          setVoices(list.filter(v => v.name).sort((a, b) => a.name.localeCompare(b.name)));
+          changeVoice(voice.uid);
+          setCloneStatus(`✓ "${voice.name}" cloned`);
+          setShowClone(false);
+        } catch (err) {
+          setCloneStatus(`Error: ${err.message}`);
+        }
+      }
+
+      function submit() {
+        const text = draft.trim();
+        const ws = wsRef.current;
+        if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+        const words = text.split(/\s+/).filter(Boolean);
+        for (const word of words) {
+          ws.send(JSON.stringify({ type: "stream_word", word }));
+        }
+        ws.send(JSON.stringify({ type: "stream_done" }));
+        setItems((rows) => [...rows, makeClientEntry("operator", text)]);
+        setStatus("speaking");
+        setLastEvent(`tts sent: ${text}`);
+        setDraft("");
+      }
+
+      function warmupTts() {
+        const ws = wsRef.current;
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "tts_warmup" }));
+        }
+      }
+
+      function onKeyDown(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          submit();
+        }
+      }
+
+      return h("main", { className: "shell" },
+        h("section", { className: "phone", "aria-label": "Your iPhone UI" },
+          h("div", { className: "top" },
+            h("div", { className: "statusbar" },
+              h("span", null, new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })),
+              h("div", { className: "island", "aria-hidden": "true" }),
+              h("span", null, "5G")
+            ),
+            h("div", { className: "head" },
+              h("div", null,
+                h("h1", null, "Your iPhone UI"),
+                h("p", { className: "sub" }, callerConnected ? "Live Gradium transcript" : "Share /call with the caller")
+              ),
+              h("div", { className: "pill" },
+                h("span", { className: `led ${callerConnected ? "on" : ""}` }),
+                statusLabel
+              )
+            ),
+            h("div", { className: "voice-row" },
+              h("select", {
+                className: "voice-select",
+                value: voiceId || "",
+                onChange: (e) => changeVoice(e.target.value)
+              },
+                voices.length === 0
+                  ? h("option", { key: "loading", value: "" }, "Loading voices…")
+                  : voices.map(v =>
+                      h("option", { key: v.uid, value: v.uid },
+                        v.is_catalog ? v.name : `★ ${v.name}`)
+                    )
+              ),
+              voices.length > 0 && h("span", { className: "voice-count" }, `${voices.length} voices`),
+              h("button", { className: "clone-btn", onClick: () => setShowClone(s => !s) }, "Clone")
+            ),
+            showClone && h("div", { className: "clone-panel" },
+              h("input", { type: "file", accept: "audio/*", ref: cloneFileRef }),
+              h("input", { type: "text", className: "clone-name", placeholder: "Voice name", defaultValue: "My Voice", ref: cloneNameRef }),
+              h("button", { className: "clone-btn", onClick: uploadVoice }, "Upload"),
+              cloneStatus && h("span", { className: "clone-status" }, cloneStatus)
+            )
+          ),
+          h("div", { className: "content", ref: scrollerRef },
+            items.length === 0 && !interim
+              ? h("p", { className: "empty" }, "Caller speech will appear here. Submit a reply to speak it back.")
+              : null,
+            items.map((item) =>
+              h("div", { key: item.id, className: `bubble ${item.speaker === "operator" ? "operator" : "caller"}` }, item.text)
+            ),
+            interim ? h("div", { className: "bubble caller interim" }, interim) : null
+          ),
+          h("div", { className: "debug" }, `Relay: ${lastEvent}`),
+          h("div", { className: "composer" },
+            h("textarea", {
+              value: draft,
+              placeholder: "Type reply",
+              rows: 1,
+              onInput: (event) => setDraft(event.target.value),
+              onKeyDown,
+              onFocus: warmupTts
+            }),
+            h("button", { className: "send", onClick: submit, disabled: !draft.trim(), "aria-label": "Send reply" },
+              h("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.4", strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": "true" },
+                h("path", { d: "M12 19V5" }),
+                h("path", { d: "m5 12 7-7 7 7" })
+              )
+            )
+          )
+        )
+      );
+    }
+
+    function makeClientEntry(speaker, text) {
+      return {
+        id: `client-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        speaker,
+        text: text || "",
+        at: new Date().toISOString()
+      };
+    }
+
+    function labelStatus(value) {
+      const labels = {
+        caller_connected: "on call",
+        caller_disconnected: "waiting",
+        speaking: "speaking",
+        reply_played: "on call",
+        relay_pending: "relay pending"
+      };
+      return labels[value] || value || "ready";
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+  </script>
+</body>
+</html>

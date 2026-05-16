@@ -1,0 +1,9 @@
+{
+  "appId": "com.milana.callrelay",
+  "appName": "Call Relay",
+  "webDir": "static",
+  "server": {
+    "url": "http://localhost:8000/iphone",
+    "cleartext": true
+  }
+}
